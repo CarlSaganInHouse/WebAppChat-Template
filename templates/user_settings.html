@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Settings - WebAppChat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .settings-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 30px;
+            background: var(--bg-secondary, #1e1e1e);
+            border-radius: 8px;
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .settings-header h1 {
+            margin: 0;
+            color: var(--text-primary, #fff);
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-primary, #fff);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-tertiary, #2a2a2a);
+            border: 1px solid var(--border-color, #3a3a3a);
+            border-radius: 4px;
+            color: var(--text-primary, #fff);
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent-color, #4a9eff);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 6px;
+            color: var(--text-secondary, #999);
+            font-size: 12px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent-color, #4a9eff);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover, #3a8eef);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary, #2a2a2a);
+            color: var(--text-primary, #fff);
+            border: 1px solid var(--border-color, #3a3a3a);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover, #3a3a3a);
+        }
+
+        .user-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: var(--bg-tertiary, #2a2a2a);
+            border-radius: 12px;
+            font-size: 13px;
+            color: var(--text-secondary, #999);
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-container">
+        <div class="settings-header">
+            <h1>User Settings</h1>
+            <span class="user-badge">{{ username }}</span>
+        </div>
+
+        <form method="POST">
+            <div class="form-group">
+                <label for="vault_path">Obsidian Vault Path</label>
+                <input
+                    type="text"
+                    id="vault_path"
+                    name="vault_path"
+                    value="{{ user_settings.obsidian_vault_path or '' }}"
+                    placeholder="{{ system_default_vault }}"
+                >
+                <small>Leave empty to use system default: {{ system_default_vault }}</small>
+            </div>
+
+            <div class="form-group">
+                <label for="shared_paths">Shared Folders (comma-separated)</label>
+                <input
+                    type="text"
+                    id="shared_paths"
+                    name="shared_paths"
+                    value="{{ ','.join(user_settings.obsidian_shared_paths) }}"
+                    placeholder="/path/to/shared/folder1, /path/to/shared/folder2"
+                >
+                <small>Additional folders to search (e.g., shared family notes)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="rag_collection">RAG Collection</label>
+                <select id="rag_collection" name="rag_collection">
+                    <option value="default" {% if user_settings.rag_collection == 'default' %}selected{% endif %}>Default (Shared)</option>
+                    <option value="personal" {% if user_settings.rag_collection == 'personal' %}selected{% endif %}>Personal Only</option>
+                    <option value="both" {% if user_settings.rag_collection == 'both' %}selected{% endif %}>Personal + Shared</option>
+                </select>
+                <small>Which knowledge base to use for RAG searches</small>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Save Settings</button>
+                <a href="/" class="btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

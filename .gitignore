@@ -1,0 +1,64 @@
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+# Note: .env.example is NOT ignored - it's tracked as a template
+
+# WebDAV credentials (contains hashed secrets)
+webdav_users.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+.pytest_cache/
+*.pyc
+
+# SQLite databases
+*.sqlite3
+*.db
+
+# Logs
+*.log
+/logs/
+
+# Runtime data and usage logs
+chats/usage_log.csv
+
+# SSL certificates (if locally generated)
+*.pem
+*.key
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+.stfolder/
+
+# Backups and temporary files
+*.backup
+*.bak
+.backup/
+
+# Build and distribution
+dist/
+build/
+*.egg-info/
+
+# Debug output
+debug_payloads/
+
+# Sensitive files
+Homelab/API Keys.md
+**/API Keys.md

@@ -1,0 +1,12 @@
+# AWS Lambda requirements for WebAppChat Alexa Skill
+
+# Alexa Skills Kit SDK
+ask-sdk-core==1.19.0
+
+# HTTP requests
+requests==2.31.0
+
+# Already included in Lambda runtime:
+# - boto3 (AWS SDK)
+# - json
+# - logging

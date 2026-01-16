@@ -1,0 +1,19 @@
+# Development and testing dependencies for WebAppChat
+
+# Testing framework
+pytest>=8.0.0
+pytest-cov>=4.1.0          # Coverage reporting
+pytest-mock>=3.12.0        # Mocking helpers
+pytest-timeout>=2.2.0      # Test timeouts
+
+# Code quality
+black>=24.0.0              # Code formatting
+ruff>=0.1.0                # Fast linting
+mypy>=1.8.0                # Type checking
+
+# Development utilities
+ipython>=8.20.0            # Better REPL
+ipdb>=0.13.13              # Debugging
+
+# For testing async code (if needed later)
+pytest-asyncio>=0.23.0

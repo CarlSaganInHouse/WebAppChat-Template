@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "exported": "2026-01-16 07:02 UTC",
+  "systems": {
+    "tasks_source_of_truth": "microsoft_todo",
+    "notes": "Obsidian holds context/logs/reference/decisions; tasks live in Microsoft To Do."
+  },
+  "user": {
+    "canonical": "Your Name",
+    "aliases": [
+      "YourNickname"
+    ],
+    "preferences": {
+      "tone": "concise",
+      "avoid_early_meetings": true,
+      "nudges_help": true
+    }
+  },
+  "vocabulary": [
+    {
+      "id": "term:example",
+      "term": "The Office",
+      "aliases": [
+        "office",
+        "the office"
+      ],
+      "meaning": "Your home office or workspace."
+    }
+  ],
+  "entities": [
+    {
+      "id": "person:self",
+      "type": "person",
+      "canonical": "Your Name",
+      "aliases": [
+        "YourNickname"
+      ],
+      "relationship": "self"
+    },
+    {
+      "id": "person:partner",
+      "type": "person",
+      "canonical": "Partner Name",
+      "aliases": [
+        "Partner"
+      ],
+      "relationship": "spouse/partner"
+    },
+    {
+      "id": "animal:pet1",
+      "type": "asset",
+      "subtype": "pet",
+      "canonical": "Pet Name",
+      "aliases": [
+        "Petty"
+      ],
+      "species": "dog",
+      "breed": "Breed Name"
+    },
+    {
+      "id": "asset:vehicle1",
+      "type": "asset",
+      "subtype": "vehicle",
+      "canonical": "Vehicle Make Model",
+      "aliases": [
+        "car",
+        "vehicle"
+      ],
+      "year": 2020
+    },
+    {
+      "id": "location:home",
+      "type": "location",
+      "canonical": "Home",
+      "aliases": [
+        "home",
+        "house"
+      ],
+      "notes": "Primary residence"
+    }
+  ],
+  "routing": {
+    "folders": {
+      "inbox_new": "00-Inbox",
+      "daily": "60-Calendar/Daily",
+      "projects": "10-Projects",
+      "areas": "20-Areas",
+      "reference": "30-Resources",
+      "meta": "90-Meta",
+      "archive": "99-Archive"
+    },
+    "capture_types": [
+      "task",
+      "log",
+      "reference",
+      "decision",
+      "question"
+    ],
+    "default_time_for_tomorrow_morning": "09:00"
+  }
+}

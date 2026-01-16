@@ -1,0 +1,4088 @@
+<!-- REBUILD TEST 12345 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Local Chat</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=202512031735">
+  <!-- Recommended monospace font for code: JetBrains Mono (falls back to Fira Code, Consolas, Courier New) -->
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+</head>
+<body>
+  <!-- Mobile Menu Buttons -->
+  <button class="mobile-menu-btn" id="mobileMenuBtn" style="display: none;" aria-label="Toggle sidebar menu" aria-expanded="false">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+  <button class="mobile-panel-btn" id="mobilePanelBtn" style="display: none;" aria-label="Toggle RAG panel" aria-expanded="false">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+
+  <div class="sidebar" role="navigation" aria-label="Chat navigation">
+    <div class="sidebar-header">
+      <button id="closeSidebarBtn" class="btn mobile-only-close-btn" aria-label="Close sidebar">✕</button>
+      <button id="collapse-left" class="btn" data-shortcut="Ctrl+B" aria-label="Collapse sidebar" style="margin-bottom: 8px;">◀ Collapse</button>
+    <div class="sidebar-top-buttons">
+      <button id="newChatBtn" class="btn btn-primary" aria-label="Create new chat">+ New Chat</button>
+      <a href="/auth/settings" class="btn btn-secondary" aria-label="User settings">⚙️ Settings</a>
+    </div>
+
+      <!-- Search Box -->
+      <div class="search-box" role="search" style="margin-top: 12px; margin-bottom: 12px;">
+        <input type="text" id="chatSearch" placeholder="Search chats..." autocomplete="off" aria-label="Search chats" />
+        <div id="searchResults" class="search-results" role="listbox" aria-label="Search results"></div>
+      </div>
+
+      <!-- Tag Filters -->
+      <div class="tag-filters">
+        <button class="tag-filter active" data-tag="">All</button>
+      </div>
+
+      <!-- Sidebar Actions (Select/Archived) -->
+      <div class="sidebar-actions">
+        <button id="selectModeBtn" class="btn btn-secondary sidebar-action-btn" title="Select multiple chats">
+          Select
+        </button>
+        <button id="toggleArchivedBtn" class="btn btn-secondary sidebar-action-btn" title="View archived chats">
+          Archived
+        </button>
+      </div>
+
+      <!-- Bulk Action Bar (hidden by default) -->
+      <div id="bulkActionBar" class="bulk-action-bar" style="display:none;">
+        <label class="select-all-label">
+          <input type="checkbox" id="selectAllChats"> All
+        </label>
+        <span id="selectedCount" class="selected-count">0 selected</span>
+        <button id="bulkArchiveBtn" class="btn btn-secondary">Archive</button>
+        <button id="cancelBulkBtn" class="btn btn-secondary">Cancel</button>
+      </div>
+    </div>
+
+    <ul id="chatList" role="list" aria-label="Chat list"></ul>
+  </div>
+
+  <div class="main-content" role="main">
+    <!-- Minimal Topbar -->
+    <div class="topbar-minimal" role="toolbar" aria-label="Chat settings">
+      <select id="modelSelect" aria-label="Select AI model"></select>
+      <select id="reasoningSelect" aria-label="Select reasoning level" style="display: none;">
+        <option value="low">Low</option>
+        <option value="medium" selected>Medium</option>
+        <option value="high">High</option>
+      </select>
+      <button id="settingsToggleBtn" class="settings-toggle-btn" aria-expanded="false" aria-controls="settingsDrawer">
+        ⚙️ Settings
+      </button>
+      <button id="chatModeToggle" class="mode-btn" title="Toggle Agentic/Chat mode">
+        <span class="mode-icon">🛠️</span>
+        <span class="mode-label">Agentic</span>
+      </button>
+    </div>
+
+    <!-- Settings Drawer (collapsible) -->
+    <div id="settingsDrawer" class="settings-drawer" aria-hidden="true">
+      <!-- Row 1: Model + Preset (compact on desktop) -->
+      <div class="settings-drawer-section">
+        <div class="settings-drawer-row-compact">
+          <div class="settings-drawer-row">
+            <span id="chatModelBadge" class="topbar-badge"></span>
+            <label class="settings-drawer-checkbox">
+              <input type="checkbox" id="pinModelCheckbox">
+              <span>Pin Model</span>
+            </label>
+          </div>
+          <div class="settings-drawer-row">
+            <label for="presetSelect">Preset</label>
+            <select id="presetSelect" aria-label="Select preset"></select>
+            <button id="managePresetsBtn" class="btn btn-secondary btn-sm" title="Manage Presets">Manage</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Parameters + RAG (compact on desktop) -->
+      <div class="settings-drawer-section">
+        <div class="settings-drawer-row-compact">
+          <div class="settings-drawer-row has-tooltip">
+            <label for="temp">Temperature</label>
+            <input type="range" id="temp" min="0" max="1" step="0.05" value="0.3" aria-label="Temperature">
+            <span id="tempValue" class="topbar-value">0.3</span>
+            <div class="topbar-tooltip">
+              <strong>Temperature</strong>
+              <p>Controls creativity and randomness.</p>
+              <ul>
+                <li><strong>0.0-0.3:</strong> Precise, deterministic</li>
+                <li><strong>0.4-0.7:</strong> Balanced</li>
+                <li><strong>0.8-1.0:</strong> Creative, varied</li>
+              </ul>
+              <em>💡 Tip: Use 0.2-0.3 for RAG answers</em>
+            </div>
+          </div>
+          <div class="settings-drawer-row has-tooltip">
+            <label for="topK">Top-K</label>
+            <input type="number" id="topK" min="1" max="10" value="5" aria-label="Top-K">
+            <div class="topbar-tooltip">
+              <strong>Top-K (RAG)</strong>
+              <p>Number of context chunks to retrieve.</p>
+              <ul>
+                <li><strong>1-3:</strong> Focused, may miss details</li>
+                <li><strong>5:</strong> Balanced (recommended)</li>
+                <li><strong>6-10:</strong> Broader, may be noisy</li>
+              </ul>
+              <em>💡 Tip: Start with 5 and adjust</em>
+            </div>
+          </div>
+          <div class="settings-drawer-row">
+            <label class="settings-drawer-checkbox">
+              <input type="checkbox" id="useRag">
+              <span>Use RAG</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Budget (compact on desktop) -->
+      <div class="settings-drawer-section">
+        <div class="settings-drawer-row-compact">
+          <div class="settings-drawer-row">
+            <label for="chatBudget">Budget $</label>
+            <input type="number" id="chatBudget" min="0" step="0.01" aria-label="Chat budget">
+          </div>
+          <div class="settings-drawer-row budget-bar-row">
+            <div id="budgetWrap" class="budget-display">
+              <div id="budgetBar" class="budget-bar">
+                <div id="budgetFill" class="budget-fill"></div>
+              </div>
+              <small id="budgetText" class="budget-text"></small>
+            </div>
+          </div>
+          <div class="settings-drawer-row">
+            <span id="total-usage-display" class="topbar-badge"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Prompt Section -->
+      <div class="settings-drawer-section">
+        <div class="settings-drawer-row" style="flex-direction: column; align-items: stretch;">
+          <label for="systemPrompt" style="margin-bottom: 6px;">System Prompt</label>
+          <textarea id="systemPrompt" rows="4" placeholder="System prompt (optional)" style="width: 100%; resize: vertical;"></textarea>
+        </div>
+      </div>
+
+      <!-- Actions Section -->
+      <div class="settings-drawer-section">
+        <div class="settings-drawer-actions">
+          <button id="downloadChatBtn" class="btn btn-secondary btn-sm">💾 Download</button>
+          <button id="saveChatToVaultBtn" class="btn btn-secondary btn-sm">📝 Save to Vault</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-log" class="chat-log"></div>
+
+    <form id="chat-form" class="composer">
+      <textarea id="prompt-input" autocomplete="off" placeholder="Type your message…" rows="1"></textarea>
+      <button type="button" id="voice-btn" class="voice-btn" title="Voice input" aria-label="Voice input">
+        <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </button>
+      <button type="button" id="inbox-btn" class="inbox-btn" title="Save to Inbox" aria-label="Save to Inbox">
+        <svg class="inbox-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+          <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+        </svg>
+      </button>
+      <input type="file" id="image-input" accept="image/*" style="display:none">
+      <button type="button" id="image-btn" class="image-btn" title="Attach image" aria-label="Attach image">
+        <svg class="image-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+      </button>
+      <button type="submit">Send</button>
+    </form>
+
+
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <button id="collapse-right" class="btn" data-shortcut="Ctrl+." style="width: 100%; margin-bottom: 8px;">Collapse ▶</button>
+      <button id="toggleRagSection" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;">Hide RAG Upload</button>
+      <button id="toggleAnalyticsTop" class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;">Show Analytics</button>
+    </div>
+    
+    <div class="panel-content">
+      <div id="ragUploadSection">
+      <div style="margin-bottom: 12px; padding: 8px; background: var(--bg-soft); border-radius: 8px; border: 1px solid var(--border);">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; margin-bottom: 8px;">
+          <input type="checkbox" id="showVaultSources" checked>
+          <span>Show Vault Sources in List</span>
+        </label>
+        <button id="btnSyncVault" type="button" class="btn btn-primary" style="width: 100%; font-size: 12px;">
+          🔄 Sync Obsidian Vault to RAG
+        </button>
+        <div id="syncStatus" style="margin-top: 6px; font-size: 11px; color: var(--muted);"></div>
+      </div>
+      
+      <div class="upload-box">
+        <input id="srcName" placeholder="Source name (e.g., TrexSpec)">
+        <textarea id="srcText" rows="4" placeholder="Paste text here…"></textarea>
+        <button id="btnUploadSrc" type="button" class="btn btn-dark">Upload source</button>
+      </div>
+      <ul id="srcList"></ul>
+      <input type="file" id="pdfFile" class="file-input" accept="application/pdf">
+      <input id="pdfName" placeholder="PDF source name (optional)">
+      <button id="btnUploadPdf" type="button" class="btn btn-dark">Upload PDF</button>
+
+      <div id="dropZone" class="drop-zone">
+        Drag & drop .txt/.md/.pdf here (or use the form)
+      </div>
+      <div id="uploadStatus" style="margin-top: 10px; color: var(--muted);"></div>
+    </div>
+
+    <details class="settings-explainer">
+      <summary>ℹ️ Settings Help</summary>
+      <div class="settings-content">
+        <h4>Top-K (RAG)</h4>
+        <p>How many context chunks to pull from files. Lower K (1-3) is focused but may miss details. Higher K (5-8) is broader but can be noisy. <em>Tip: Start at 5.</em></p>
+
+        <h4>Temperature</h4>
+        <p>Controls creativity. Lower (0.0-0.3) is precise. Higher (0.8-1.0) is inventive. <em>Tip: Use 0.2-0.3 for RAG answers.</em></p>
+      </div>
+    </details>
+
+    <!-- Analytics Section -->
+    <div style="margin-top: 16px;">
+      <div id="analyticsSection" style="display:none; margin-top:10px;">
+        <div id="analyticsOverview" class="analytics-cards"></div>
+        <div id="analyticsModelMix" class="analytics-cards"></div>
+        <div id="analyticsTags" class="analytics-cards"></div>
+        <div id="analyticsDaily" class="analytics-table"></div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  
+
+  <!-- Citation drawer (right-side) -->
+  <div id="citeDrawer" style="position:fixed; right:0; top:0; bottom:0; width:360px; background:var(--panel); border-left:1px solid var(--border); padding:12px; display:none; z-index:1500;">
+    <button id="citeDrawerClose" class="modal-close" style="float:right;">×</button>
+    <h3 id="citeDrawerHeader" style="margin-top:6px; color:var(--accent);"></h3>
+    <pre id="citeDrawerBody" style="white-space:pre-wrap; background:#0b1220; border:1px solid #1f2740; padding:10px; border-radius:8px; overflow:auto; max-height:80vh;"></pre>
+    <div style="margin-top:8px;"><a id="citeDrawerSourceLink" href="#" target="_blank" style="color:var(--pastel-blue);">Open full source</a></div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toastContainer"></div>
+
+  <div id="presetsModal" style="display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6);">
+    <div style="background-color: var(--panel); margin: 10% auto; padding: 20px; border: 1px solid var(--border); width: 80%; max-width: 600px; border-radius: 12px; position: relative;">
+      <span id="closePresetsModal" style="color: var(--muted); float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+      <h2>Manage Presets</h2>
+      <div id="modalPresetsList" style="margin-bottom: 20px;"></div>
+      <form id="presetForm">
+        <h3 id="presetFormTitle">Add New Preset</h3>
+        <input type="hidden" id="presetIdField">
+        <div style="display: grid; gap: 10px;">
+          <label>Label <input type="text" id="presetLabelField" style="width: 100%;" required></label>
+          <label>System Prompt <textarea id="presetSystemField" style="width: 100%; min-height: 100px;"></textarea></label>
+          <label>Temperature <input type="number" id="presetTempField" min="0" max="1" step="0.05" style="width: 80px;"></label>
+        </div>
+        <div style="margin-top: 15px;">
+          <button type="submit">Save</button>
+          <button type="button" id="cancelPresetEdit">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+
+  <!-- New script for device detection, URL parsing, and auto-activation -->
+  <script>
+    function isTouchDevice() {
+      // Feature detection for touch devices
+      // This covers most modern touch-enabled devices
+      if ('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0) {
+        return true;
+      }
+
+      // Check for coarse pointer (e.g., finger on touchscreen)
+      // This is a more robust way to detect primary input mechanism
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+        return true;
+      }
+
+      // If neither is true, likely not a touch device
+      return false;
+    }
+
+    function getURLParameter(name) {
+      name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+      const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+      const results = regex.exec(location.search);
+      return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const focusParam = getURLParameter('focus');
+      if (focusParam === 'voice') {
+        const promptInput = document.getElementById('prompt-input');
+        if (isTouchDevice()) {
+          // If it's a touch device, attempt to start voice recording
+          // toggleVoiceRecording is defined in the main script block
+          if (typeof toggleVoiceRecording === 'function') {
+            toggleVoiceRecording();
+          } else {
+            console.warn('toggleVoiceRecording function not found. Voice auto-activation failed.');
+          }
+        } else {
+          // If not a touch device (e.g., desktop), just focus the prompt input
+          if (promptInput) {
+            promptInput.focus();
+          }
+        }
+      }
+    });
+  </script>
+
+  <script>
+    // ---------- CONFIGURATION ----------
+    // Obsidian vault name - IMPORTANT: This must match the vault name in your Obsidian settings
+    // To find your vault name: Open Obsidian > Settings > About > Vault name
+    const OBSIDIAN_VAULT_NAME = 'obsidian-vault';
+
+    // Cache for vault structure (for smart wikilink detection)
+    let vaultStructureCache = null;
+
+    // ---------- DOM ----------
+    const chatLog     = document.getElementById('chat-log');
+    const chatForm    = document.getElementById('chat-form');
+    const promptInput = document.getElementById('prompt-input');
+    const modelSelect = document.getElementById('modelSelect');
+    const reasoningSelect = document.getElementById('reasoningSelect');
+    const newChatBtn  = document.getElementById('newChatBtn');
+    const chatList    = document.getElementById('chatList');
+    const presetSelect= document.getElementById('presetSelect');
+    const tempSlider  = document.getElementById('temp');
+    const tempValue   = document.getElementById('tempValue');
+    const systemBox   = document.getElementById('systemPrompt');
+    const useRagBox   = document.getElementById('useRag');
+    const topKInput   = document.getElementById('topK');
+    const totalUsageDisplay = document.getElementById('total-usage-display');
+    const downloadChatBtn = document.getElementById('downloadChatBtn');
+    const settingsToggleBtn = document.getElementById('settingsToggleBtn');
+    const settingsDrawer = document.getElementById('settingsDrawer');
+    const chatModeToggle = document.getElementById('chatModeToggle');
+
+    // Chat mode state (agentic or chat)
+    let currentChatMode = 'agentic';
+
+    // Bulk select mode state
+    let bulkSelectMode = false;
+    let selectedChatIds = new Set();
+    let showingArchived = false;
+
+    downloadChatBtn.onclick = () => { if (currentChatId) window.location = `/chat/${currentChatId}/export.md`; };
+
+    // Save Chat to Vault button handler
+    const saveChatToVaultBtn = document.getElementById('saveChatToVaultBtn');
+    if (saveChatToVaultBtn) {
+      saveChatToVaultBtn.onclick = async () => {
+        if (!currentChatId) {
+          showToast('No chat selected');
+          return;
+        }
+        
+        try {
+          const response = await fetch(`/chat/${currentChatId}/export.md`);
+          if (!response.ok) throw new Error('Failed to fetch chat');
+          const content = await response.text();
+          
+          // Get chat title - try multiple sources
+          let defaultFilename = `Chat ${new Date().toISOString().split('T')[0]}`;
+          
+          // Try active chat element
+          const activeChatEl = document.querySelector('.chat-item.active');
+          if (activeChatEl) {
+            const titleEl = activeChatEl.querySelector('.chat-title');
+            if (titleEl && titleEl.textContent.trim()) {
+              defaultFilename = titleEl.textContent.trim();
+            }
+          }
+          
+          openSaveToVaultModal(content, defaultFilename);
+        } catch (e) {
+          console.error('Failed to load chat content:', e);
+          showToast('❌ Failed to load chat content');
+        }
+      };
+    }
+
+    // System prompt is now always visible in settings drawer - no toggle needed
+
+    // ---------- Keyboard Shortcuts ----------
+    const SHORTCUTS = {
+      'ctrl+k': { action: 'focusSearch', description: 'Focus search' },
+      'ctrl+n': { action: 'newChat', description: 'New chat' },
+      'ctrl+/': { action: 'showShortcuts', description: 'Show shortcuts' },
+      'escape': { action: 'closeModal', description: 'Close modal/drawer' },
+      'ctrl+b': { action: 'toggleSidebar', description: 'Toggle sidebar' },
+      'ctrl+.': { action: 'togglePanel', description: 'Toggle right panel' },
+      'ctrl+enter': { action: 'sendMessage', description: 'Send message' },
+      'ctrl+l': { action: 'clearComposer', description: 'Clear composer' },
+      'ctrl+\\': { action: 'toggleVoice', description: 'Toggle voice input' },
+    };
+
+    function showShortcutsModal() {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal shortcuts-modal">
+          <div class="modal-header">
+            <h3>Keyboard Shortcuts</h3>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="shortcuts-list">
+              ${Object.entries(SHORTCUTS).map(([key, {description}]) => `
+                <div class="shortcut-row">
+                  <kbd>${key.split('+').map(k => k.charAt(0).toUpperCase() + k.slice(1)).join(' + ')}</kbd>
+                  <span>${description}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+    }
+
+    function closeAllModals() {
+      document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+      const drawer = document.getElementById('citeDrawer');
+      if (drawer && drawer.classList.contains('open')) {
+        drawer.classList.remove('open');
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      const isInput = ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
+
+      const key = [
+        e.ctrlKey && 'ctrl',
+        e.altKey && 'alt',
+        e.shiftKey && 'shift',
+        e.key.toLowerCase()
+      ].filter(Boolean).join('+');
+
+      const shortcut = SHORTCUTS[key];
+      if (!shortcut) return;
+
+      switch(shortcut.action) {
+        case 'focusSearch':
+          e.preventDefault();
+          document.getElementById('chatSearch').focus();
+          break;
+        case 'newChat':
+          if (!isInput) {
+            e.preventDefault();
+            document.getElementById('newChatBtn').click();
+          }
+          break;
+        case 'showShortcuts':
+          e.preventDefault();
+          showShortcutsModal();
+          break;
+        case 'closeModal':
+          e.preventDefault();
+          closeAllModals();
+          break;
+        case 'toggleSidebar':
+          e.preventDefault();
+          document.getElementById('collapse-left').click();
+          break;
+        case 'togglePanel':
+          e.preventDefault();
+          document.getElementById('collapse-right').click();
+          break;
+        case 'sendMessage':
+          if (isInput && e.target.id === 'prompt-input') {
+            e.preventDefault();
+            chatForm.dispatchEvent(new Event('submit', {cancelable: true}));
+          }
+          break;
+        case 'clearComposer':
+          if (e.target.id === 'prompt-input') {
+            e.preventDefault();
+            e.target.value = '';
+            e.target.style.height = 'auto';
+          }
+          break;
+        case 'toggleVoice':
+          e.preventDefault();
+          toggleVoiceRecording();
+          break;
+      }
+    });
+
+    // Settings drawer toggle
+    settingsToggleBtn.addEventListener('click', () => {
+      const isOpen = settingsDrawer.classList.toggle('open');
+      settingsToggleBtn.setAttribute('aria-expanded', isOpen);
+      settingsDrawer.setAttribute('aria-hidden', !isOpen);
+      if (isOpen) {
+        settingsToggleBtn.classList.add('active');
+      } else {
+        settingsToggleBtn.classList.remove('active');
+      }
+    });
+
+    // ---------- Chat Mode Toggle ----------
+
+    // Load chat mode from backend
+    async function loadChatMode(chatId) {
+      if (!chatId) {
+        currentChatMode = 'agentic';
+        updateChatModeUI();
+        return;
+      }
+      try {
+        const res = await fetch(`/chat/${chatId}/mode`);
+        const data = await res.json();
+        currentChatMode = data.mode || 'agentic';
+        updateChatModeUI();
+      } catch (e) {
+        console.error('Error loading chat mode:', e);
+        currentChatMode = 'agentic';
+        updateChatModeUI();
+      }
+    }
+
+    // Toggle chat mode between agentic and chat
+    async function toggleChatMode() {
+      // Don't toggle if CLI models are selected (always agentic)
+      const model = modelSelect.value;
+      if (model.startsWith('claude-code-') || model.startsWith('codex-') || model.startsWith('gemini-cli-')) {
+        return;
+      }
+      if (!currentChatId) {
+        showToast('Please select a chat first');
+        return;
+      }
+      const newMode = currentChatMode === 'agentic' ? 'chat' : 'agentic';
+      try {
+        await fetch(`/chat/${currentChatId}/mode`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: newMode })
+        });
+        currentChatMode = newMode;
+        updateChatModeUI();
+        showToast(`Switched to ${newMode === 'agentic' ? 'Agentic' : 'Chat'} mode`);
+      } catch (e) {
+        console.error('Error toggling chat mode:', e);
+        showToast('Failed to toggle mode');
+      }
+    }
+
+    // Update the mode toggle button UI
+    function updateChatModeUI() {
+      const iconSpan = chatModeToggle.querySelector('.mode-icon');
+      const labelSpan = chatModeToggle.querySelector('.mode-label');
+      const model = modelSelect.value;
+      const isClaudeCode = model.startsWith('claude-code-');
+      const isCodex = model.startsWith('codex-');
+      const isGeminiCli = model.startsWith('gemini-cli-');
+      const isCliModel = isClaudeCode || isCodex || isGeminiCli;
+
+      // Show/hide reasoning dropdown for Codex models only
+      if (isCodex) {
+        reasoningSelect.style.display = 'inline-block';
+      } else {
+        reasoningSelect.style.display = 'none';
+      }
+
+      // CLI models are always agentic - disable toggle
+      if (isCliModel) {
+        if (isClaudeCode) {
+          iconSpan.textContent = '🤖';
+          labelSpan.textContent = 'Claude Code';
+          chatModeToggle.title = 'Claude Code: Always agentic (uses Max subscription)';
+        } else if (isCodex) {
+          iconSpan.textContent = '🤖';
+          labelSpan.textContent = 'Codex';
+          chatModeToggle.title = 'Codex: Always agentic (uses ChatGPT subscription)';
+        } else if (isGeminiCli) {
+          iconSpan.textContent = '🤖';
+          labelSpan.textContent = 'Gemini CLI';
+          chatModeToggle.title = 'Gemini CLI: Always agentic (uses Google Login)';
+        }
+        chatModeToggle.classList.remove('chat-mode');
+        chatModeToggle.classList.add('claude-code-mode');
+        chatModeToggle.disabled = true;
+        chatModeToggle.style.opacity = '0.7';
+        chatModeToggle.style.cursor = 'default';
+      } else if (currentChatMode === 'agentic') {
+        iconSpan.textContent = '🛠️';
+        labelSpan.textContent = 'Agentic';
+        chatModeToggle.title = 'Agentic mode: Tool calling enabled, vault guidance active';
+        chatModeToggle.classList.remove('chat-mode', 'claude-code-mode');
+        chatModeToggle.disabled = false;
+        chatModeToggle.style.opacity = '1';
+        chatModeToggle.style.cursor = 'pointer';
+      } else {
+        iconSpan.textContent = '💬';
+        labelSpan.textContent = 'Chat';
+        chatModeToggle.title = 'Chat mode: Streaming enabled, no tools or vault guidance';
+        chatModeToggle.classList.add('chat-mode');
+        chatModeToggle.classList.remove('claude-code-mode');
+        chatModeToggle.disabled = false;
+        chatModeToggle.style.opacity = '1';
+        chatModeToggle.style.cursor = 'pointer';
+      }
+    }
+
+    // Attach click handler to mode toggle button
+    chatModeToggle.addEventListener('click', toggleChatMode);
+
+    const collapseLeftBtn = document.getElementById('collapse-left');
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
+
+    collapseLeftBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      mainContent.classList.toggle('sidebar-collapsed');
+      collapseLeftBtn.textContent = sidebar.classList.contains('collapsed') ? '>' : 'Collapse';
+    });
+
+    const collapseRightBtn = document.getElementById('collapse-right');
+    const panel = document.querySelector('.panel');
+
+    // Mobile menu handlers
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobilePanelBtn = document.getElementById('mobilePanelBtn');
+
+    if (mobileMenuBtn) {
+      mobileMenuBtn.addEventListener('click', () => {
+        const isOpen = sidebar.classList.toggle('open');
+        mobileMenuBtn.classList.toggle('active');
+        mobileMenuBtn.setAttribute('aria-expanded', isOpen);
+        // Close panel if open
+        if (panel.classList.contains('open')) {
+          panel.classList.remove('open');
+          if (mobilePanelBtn) mobilePanelBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    if (mobilePanelBtn) {
+      mobilePanelBtn.addEventListener('click', () => {
+        const isOpen = panel.classList.toggle('open');
+        document.body.classList.toggle('panel-open');
+        mobilePanelBtn.classList.toggle('active');
+        mobilePanelBtn.setAttribute('aria-expanded', isOpen);
+        // Close sidebar if open
+        if (sidebar.classList.contains('open')) {
+          sidebar.classList.remove('open');
+          mobileMenuBtn.classList.remove('active');
+          mobileMenuBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+    if (closeSidebarBtn) {
+      closeSidebarBtn.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        mobileMenuBtn.classList.remove('active');
+        mobileMenuBtn.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    // Close sidebar/panel when clicking outside on mobile
+    document.addEventListener('click', (e) => {
+      if (window.innerWidth <= 768) {
+        if (!sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target) && sidebar.classList.contains('open')) {
+          sidebar.classList.remove('open');
+          mobileMenuBtn.classList.remove('active');
+        }
+        if (!panel.contains(e.target) && !mobilePanelBtn.contains(e.target) && panel.classList.contains('open')) {
+          panel.classList.remove('open');
+          document.body.classList.remove('panel-open');
+          mobilePanelBtn.classList.remove('active');
+        }
+      }
+    });
+
+    collapseRightBtn.addEventListener('click', () => {
+      panel.classList.toggle('collapsed');
+      mainContent.classList.toggle('panel-collapsed');
+      collapseRightBtn.textContent = panel.classList.contains('collapsed') ? '<' : 'Collapse';
+    });
+
+    // Collapse right panel by default
+    panel.classList.add('collapsed');
+    mainContent.classList.add('panel-collapsed');
+    collapseRightBtn.textContent = '<';
+
+    const toggleRagSectionBtn = document.getElementById('toggleRagSection');
+    const ragUploadSection = document.getElementById('ragUploadSection');
+
+    toggleRagSectionBtn.addEventListener('click', () => {
+      if (ragUploadSection.style.display === 'none') {
+        ragUploadSection.style.display = 'block';
+        toggleRagSectionBtn.textContent = 'Hide RAG Upload';
+      } else {
+        ragUploadSection.style.display = 'none';
+        toggleRagSectionBtn.textContent = 'Show RAG Upload';
+      }
+    });
+
+    // ---------- Analytics UI ----------
+    const toggleAnalyticsBtn = document.getElementById('toggleAnalytics');
+    const toggleAnalyticsTopBtn = document.getElementById('toggleAnalyticsTop');
+    const analyticsSection = document.getElementById('analyticsSection');
+    const elOverview = document.getElementById('analyticsOverview');
+    const elModelMix = document.getElementById('analyticsModelMix');
+    const elTags = document.getElementById('analyticsTags');
+    const elDaily = document.getElementById('analyticsDaily');
+
+    async function toggleAnalytics() {
+      const visible = analyticsSection.style.display !== 'none';
+      if (visible) {
+        analyticsSection.style.display = 'none';
+        if (toggleAnalyticsBtn) toggleAnalyticsBtn.textContent = 'Show Analytics';
+        if (toggleAnalyticsTopBtn) toggleAnalyticsTopBtn.textContent = 'Show Analytics';
+        return;
+      }
+      analyticsSection.style.display = 'block';
+      if (toggleAnalyticsBtn) toggleAnalyticsBtn.textContent = 'Hide Analytics';
+      if (toggleAnalyticsTopBtn) toggleAnalyticsTopBtn.textContent = 'Hide Analytics';
+      // Visible placeholders so user sees content area immediately
+      elOverview.innerHTML = '<div class="analytics-card"><div class="analytics-card-title">Overview</div><div class="loading-dots"><span></span><span></span><span></span></div></div>';
+      elModelMix.innerHTML = '<div class="analytics-card"><div class="analytics-card-title">Tokens & Cost by Model</div><div class="loading-dots"><span></span><span></span><span></span></div></div>';
+      elTags.innerHTML = '<div class="analytics-card"><div class="analytics-card-title">By Tag</div><div class="loading-dots"><span></span><span></span><span></span></div></div>';
+      elDaily.innerHTML = '<div class="analytics-card"><div class="analytics-card-title">Daily</div><div class="loading-dots"><span></span><span></span><span></span></div></div>';
+      try {
+        await Promise.all([
+          loadAnalyticsOverview(),
+          loadAnalyticsTokens(),
+          loadAnalyticsTags(),
+          loadAnalyticsDaily()
+        ]);
+        // Scroll into view so it's visible even if placed lower in the panel
+        analyticsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (e) { console.error('Analytics load failed', e); }
+    }
+
+    if (toggleAnalyticsBtn) toggleAnalyticsBtn.addEventListener('click', toggleAnalytics);
+    if (toggleAnalyticsTopBtn) toggleAnalyticsTopBtn.addEventListener('click', toggleAnalytics);
+
+    async function loadAnalyticsOverview(){
+      const r = await fetch('/analytics/usage');
+      if (!r.ok) {
+        elOverview.innerHTML = '<div class="analytics-card"><div class="analytics-card-title">Overview</div><div class="muted">Analytics unavailable (enable SQLite chat storage). Set <code>USE_SQLITE_CHATS=true</code> and restart.</div></div>';
+        return;
+      }
+      const j = await r.json();
+      elOverview.innerHTML = `
+        <div class="analytics-card">
+          <div class="analytics-card-title">Overview</div>
+          <div class="analytics-grid">
+            <div><div class="k">Total Chats</div><div class="v">${j.total_chats ?? 0}</div></div>
+            <div><div class="k">Total Messages</div><div class="v">${j.total_messages ?? 0}</div></div>
+            <div><div class="k">Total Spend</div><div class="v">$${(j.total_spend_usd ?? 0).toFixed(4)}</div></div>
+          </div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-title">Model Mix</div>
+          <ul class="analytics-list">
+            ${Object.entries(j.model_mix || {}).map(([m,c]) => `<li><span class="m">${escapeHtml(m)}</span><span class="r">${c}</span></li>`).join('') || '<li>No data</li>'}
+          </ul>
+        </div>
+      `;
+    }
+
+    async function loadAnalyticsTokens(){
+      const r = await fetch('/analytics/tokens');
+      if (!r.ok) {
+        elModelMix.innerHTML = '<div class="analytics-card"><div class="analytics-card-title">Tokens & Cost by Model</div><div class="muted">No usage log data yet.</div></div>';
+        return;
+      }
+      const j = await r.json();
+      const items = Object.entries(j.by_model || {});
+      elModelMix.innerHTML = `
+        <div class="analytics-card">
+          <div class="analytics-card-title">Tokens & Cost by Model</div>
+          <table class="analytics-table-el"><thead>
+            <tr><th>Model</th><th>In</th><th>Out</th><th>Msgs</th><th>Cost</th></tr>
+          </thead><tbody>
+            ${items.map(([m,v]) => `<tr><td>${escapeHtml(m)}</td><td>${v.in_tokens}</td><td>${v.out_tokens}</td><td>${v.message_count}</td><td>$${v.cost_usd.toFixed(6)}</td></tr>`).join('') || '<tr><td colspan="5">No data</td></tr>'}
+          </tbody></table>
+        </div>
+      `;
+    }
+
+    async function loadAnalyticsTags(){
+      const r = await fetch('/analytics/tags');
+      if (!r.ok) {
+        elTags.innerHTML = '<div class="analytics-card"><div class="analytics-card-title">By Tag</div><div class="muted">Analytics unavailable (enable SQLite chat storage).</div></div>';
+        return;
+      }
+      const j = await r.json();
+      const items = Object.entries(j.by_tag || {});
+      elTags.innerHTML = `
+        <div class="analytics-card">
+          <div class="analytics-card-title">By Tag</div>
+          <table class="analytics-table-el"><thead>
+            <tr><th>Tag</th><th>Chats</th><th>Msgs</th><th>Tokens</th><th>Cost</th></tr>
+          </thead><tbody>
+            ${items.map(([t,v]) => `<tr><td>${escapeHtml(t)}</td><td>${v.chat_count}</td><td>${v.message_count}</td><td>${v.tokens}</td><td>$${v.cost_usd.toFixed(6)}</td></tr>`).join('') || '<tr><td colspan="5">No data</td></tr>'}
+          </tbody></table>
+        </div>
+      `;
+    }
+
+    async function loadAnalyticsDaily(){
+      const r = await fetch('/analytics/daily');
+      if (!r.ok) {
+        elDaily.innerHTML = '<div class="analytics-card"><div class="analytics-card-title">Daily</div><div class="muted">Analytics unavailable (enable SQLite chat storage).</div></div>';
+        return;
+      }
+      const j = await r.json();
+      const rows = (j.daily || []);
+      elDaily.innerHTML = `
+        <div class="analytics-card">
+          <div class="analytics-card-title">Daily</div>
+          <table class="analytics-table-el"><thead>
+            <tr><th>Date</th><th>Msgs</th><th>Chats</th><th>Tokens</th><th>Cost</th></tr>
+          </thead><tbody>
+            ${rows.map(r => `<tr><td>${r.date}</td><td>${r.message_count}</td><td>${r.chat_count}</td><td>${r.tokens}</td><td>$${r.cost_usd.toFixed(6)}</td></tr>`).join('') || '<tr><td colspan="5">No data</td></tr>'}
+          </tbody></table>
+        </div>
+      `;
+    }
+
+    // Vault sources visibility toggle
+    const showVaultCheckbox = document.getElementById('showVaultSources');
+    showVaultCheckbox.addEventListener('change', () => {
+      refreshSources();
+    });
+
+    const dz = document.getElementById('dropZone');
+
+    ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
+    ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
+
+    dz.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const files = [...e.dataTransfer.files];
+      for (const f of files) {
+        const name = f.name.replace(/\.(txt|md|pdf)$/i,'') || 'Source';
+        showUploadProgress(f.name);
+        if (/\.pdf$/i.test(f.name)) {
+          // PDF path
+          const fd = new FormData();
+          fd.append('file', f);
+          fd.append('name', name);
+          const r = await fetch('/upload-pdf', { method:'POST', body: fd });
+          const j = await r.json();
+          if (!j.ok) {
+            document.getElementById('uploadStatus').textContent = `Error uploading ${f.name}: ${j.error || 'Unknown error'}`;
+            return; // Stop on first error
+          }
+        } else {
+          // Text path
+          const text = await f.text();
+          const r = await fetch('/upload', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({name, text})
+          });
+          const j = await r.json();
+          if (!j.ok) {
+            document.getElementById('uploadStatus').textContent = `Error uploading ${f.name}: ${j.error || 'Unknown error'}`;
+            return; // Stop on first error
+          }
+        }
+      }
+      document.getElementById('uploadStatus').textContent = `Successfully uploaded ${files.length} file(s).`;
+      refreshSources();
+    });
+
+    async function maybeAutoTitle(chatId, userPrompt){
+      // Fetch chat to inspect message count/title
+      const res = await fetch(`/chat/${chatId}`);
+      const chat = await res.json();
+      if (!chat || chat.error) return;
+
+      const hasCustom = chat.title && chat.title !== "New chat";
+      const isEarly = Array.isArray(chat.messages) && chat.messages.length <= 2; // user + assistant
+      if (hasCustom || !isEarly) return;
+
+      // Make a short title from the user's prompt
+      const short = userPrompt.trim().split(/\s+/).slice(0, 10).join(" ");
+      const title = short.charAt(0).toUpperCase() + short.slice(1);
+      await fetch(`/chat/${chatId}/rename`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ title })
+      });
+      refreshChatList();
+    }
+
+    promptInput.addEventListener('input', () => {
+      promptInput.style.height = 'auto';
+      promptInput.style.height = (promptInput.scrollHeight) + 'px';
+    });
+
+    promptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        chatForm.dispatchEvent(new Event('submit', {cancelable: true}));
+      }
+    });
+
+    marked.setOptions({ mangle: false, headerIds: false });
+
+    // Pre-process vault: links to encode parentheses before markdown parsing
+    // Fixes: [Dezzie-(dog).md](vault:Reference/Dezzie-(dog).md) breaking due to ()
+    function fixVaultLinksForMarkdown(text) {
+      const result = [];
+      let i = 0;
+
+      while (i < text.length) {
+        if (text[i] === '[') {
+          const linkTextStart = i + 1;
+          const linkTextEnd = text.indexOf('](', linkTextStart);
+
+          if (linkTextEnd !== -1) {
+            const linkText = text.slice(linkTextStart, linkTextEnd);
+            const urlStart = linkTextEnd + 2;
+
+            // Check if this is a vault: link
+            if (text.slice(urlStart, urlStart + 6) === 'vault:') {
+              // Find matching ) accounting for nested parens in filename
+              let depth = 1;
+              let urlEnd = urlStart;
+
+              while (urlEnd < text.length && depth > 0) {
+                if (text[urlEnd] === '(') depth++;
+                else if (text[urlEnd] === ')') depth--;
+                if (depth > 0) urlEnd++;
+              }
+
+              const url = text.slice(urlStart, urlEnd);
+              const encodedUrl = url.replace(/\(/g, '%28').replace(/\)/g, '%29');
+
+              result.push(`[${linkText}](${encodedUrl})`);
+              i = urlEnd + 1;
+              continue;
+            }
+          }
+        }
+
+        result.push(text[i]);
+        i++;
+      }
+
+      return result.join('');
+    }
+
+    // ---------- State ----------
+    const MODEL_KEY = 'chat.selectedModel';
+    const CHAT_KEY  = 'chat.currentId';
+    let currentChatId = localStorage.getItem(CHAT_KEY) || "";
+    window.allChats = [];
+
+    // ---------- Voice State ----------
+    let isRecording = false;
+    let messageWasVoiceInput = false; // Track if current message came from voice
+    let recognition = null;
+    let speechSynthesis = window.speechSynthesis;
+    const isEdge = navigator.userAgent.includes("Edg/");
+    const preferredEdgeVoices = [
+      "Microsoft Emma Online (Natural) - English (United States)",
+      "Microsoft Emma - English (United States)"
+    ];
+    let selectedVoice = null;
+
+    function updatePreferredVoice() {
+      if (!speechSynthesis) {
+        return;
+      }
+      const voices = speechSynthesis.getVoices();
+      if (!voices.length || !isEdge) {
+        selectedVoice = null;
+        return;
+      }
+      selectedVoice =
+        voices.find((voice) => preferredEdgeVoices.includes(voice.name)) ||
+        voices.find((voice) => voice.lang === "en-US") ||
+        null;
+    }
+
+    if (speechSynthesis) {
+      updatePreferredVoice();
+      speechSynthesis.onvoiceschanged = updatePreferredVoice;
+    }
+    let currentUtterance = null;
+    let fullTranscript = ''; // Accumulate transcript across continuous mode
+    let finalResults = []; // Track finalized segments by result index
+    let voiceBaseText = ''; // Preserve existing prompt text across voice sessions
+    let voiceSessionActive = false; // Track if user wants mic to stay active
+    let voiceRestartTimer = null;
+    let voiceIdleTimer = null;
+    const VOICE_AUTO_RESTART_DELAY = 1500; // ms to wait before auto-restarting
+    const VOICE_IDLE_TIMEOUT = 3000; // ms before assuming user is done
+
+    // Check for Web Speech API support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const voiceSupported = !!SpeechRecognition && !!speechSynthesis;
+
+    if (voiceSupported) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true; // Keep listening across pauses
+      recognition.interimResults = true; // Show interim results
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        if (voiceRestartTimer) {
+          clearTimeout(voiceRestartTimer);
+          voiceRestartTimer = null;
+        }
+        if (voiceIdleTimer) {
+          clearTimeout(voiceIdleTimer);
+          voiceIdleTimer = null;
+        }
+        console.log('Voice recognition started');
+        isRecording = true;
+        fullTranscript = ''; // Reset transcript
+        finalResults = [];
+        const voiceBtn = document.getElementById('voice-btn');
+        if (voiceBtn) {
+          voiceBtn.classList.add('recording');
+          voiceBtn.title = 'Recording... Click to stop (Ctrl+\\)';
+        }
+        showInterimTranscript('Listening...');
+        scheduleVoiceIdleTimeout();
+      };
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          const transcript = result[0].transcript;
+
+          if (result.isFinal) {
+            finalResults[i] = transcript.trim();
+          } else {
+            interimTranscript = transcript;
+          }
+        }
+
+        const orderedFinals = finalResults.filter(Boolean);
+        const normalizedChunks = [];
+        let previousChunk = '';
+
+        orderedFinals.forEach((chunk) => {
+          const trimmedChunk = chunk.trim();
+          if (!trimmedChunk) {
+            return;
+          }
+
+          if (!previousChunk) {
+            normalizedChunks.push(trimmedChunk);
+            previousChunk = trimmedChunk;
+            return;
+          }
+
+          if (trimmedChunk.startsWith(previousChunk)) {
+            const addition = trimmedChunk.slice(previousChunk.length).trim();
+            if (addition) {
+              normalizedChunks.push(addition);
+            }
+            previousChunk = trimmedChunk;
+          } else if (previousChunk.startsWith(trimmedChunk)) {
+            // Recognition restarted with a shorter sequence (e.g., correction)
+            previousChunk = trimmedChunk;
+          } else {
+            normalizedChunks.push(trimmedChunk);
+            previousChunk = `${previousChunk} ${trimmedChunk}`.replace(/\s+/g, ' ').trim();
+          }
+        });
+
+        fullTranscript = normalizedChunks
+          .filter(Boolean)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        // Show real-time transcript with interim results
+        const voiceDisplayText = [fullTranscript, interimTranscript]
+          .filter(Boolean)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        const combinedDisplay = composeVoiceOutput(voiceBaseText, voiceDisplayText);
+        promptInput.value = combinedDisplay;
+        showInterimTranscript(interimTranscript || 'Listening...');
+
+        // Mark that this message came from voice once confirmed final text exists
+        if (fullTranscript) {
+          messageWasVoiceInput = true;
+        }
+        scheduleVoiceIdleTimeout();
+      };
+
+      recognition.onend = () => {
+        console.log('Voice recognition ended');
+        isRecording = false;
+        const voiceBtn = document.getElementById('voice-btn');
+        if (voiceBtn) {
+          if (voiceSessionActive) {
+            voiceBtn.classList.add('recording');
+            voiceBtn.title = 'Voice input active (waiting...)';
+          } else {
+            voiceBtn.classList.remove('recording');
+            voiceBtn.title = 'Voice input (Ctrl+\\)';
+          }
+        }
+        hideInterimTranscript();
+
+        // Set final value and clean it up
+        if (fullTranscript.trim()) {
+          const finalCombined = composeVoiceOutput(voiceBaseText, fullTranscript.trim());
+          promptInput.value = finalCombined;
+          voiceBaseText = finalCombined;
+          messageWasVoiceInput = true;
+        } else {
+          voiceBaseText = promptInput.value;
+        }
+
+        if (voiceSessionActive) {
+          scheduleVoiceRestart();
+          scheduleVoiceIdleTimeout();
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Voice recognition error:', event.error);
+        isRecording = false;
+        const voiceBtn = document.getElementById('voice-btn');
+        if (voiceBtn) {
+          if (voiceSessionActive) {
+            voiceBtn.classList.add('recording');
+            voiceBtn.title = 'Voice input active (waiting...)';
+          } else {
+            voiceBtn.classList.remove('recording');
+            voiceBtn.title = 'Voice input (Ctrl+\\)';
+          }
+        }
+        hideInterimTranscript();
+        voiceBaseText = promptInput.value;
+
+        if (event.error === 'not-allowed') {
+          voiceSessionActive = false;
+          if (voiceRestartTimer) {
+            clearTimeout(voiceRestartTimer);
+            voiceRestartTimer = null;
+          }
+          clearVoiceIdleTimer();
+          showToast('Microphone access denied. Please enable in browser settings.');
+        } else if (event.error === 'no-speech') {
+          showToast('No speech detected. Try again.');
+          if (voiceSessionActive) {
+            scheduleVoiceRestart();
+            scheduleVoiceIdleTimeout();
+          }
+        } else if (event.error !== 'aborted') {
+          showToast(`Voice error: ${event.error}`);
+          if (voiceSessionActive) {
+            scheduleVoiceRestart();
+            scheduleVoiceIdleTimeout();
+          }
+        }
+      };
+    }
+
+    // Interim transcript indicator functions
+    let interimIndicator = null;
+
+    function showInterimTranscript(text) {
+      if (!interimIndicator) {
+        interimIndicator = document.createElement('div');
+        interimIndicator.className = 'interim-transcript';
+        document.body.appendChild(interimIndicator);
+      }
+      interimIndicator.textContent = text;
+    }
+
+    function hideInterimTranscript() {
+      if (interimIndicator) {
+        interimIndicator.remove();
+        interimIndicator = null;
+      }
+    }
+
+    function composeVoiceOutput(baseText, voiceText) {
+      const base = baseText || '';
+      const addition = voiceText || '';
+
+      if (!base) return addition;
+      if (!addition) return base;
+
+      const needsSpace = !/\s$/.test(base) && !/^\s/.test(addition);
+      return `${base}${needsSpace ? ' ' : ''}${addition}`;
+    }
+
+    function scheduleVoiceRestart() {
+      if (!voiceSessionActive) return;
+      if (voiceRestartTimer) return;
+
+      voiceRestartTimer = setTimeout(() => {
+        voiceRestartTimer = null;
+        try {
+          if (!recognition) return;
+          recognition.start();
+        } catch (err) {
+          console.error('Failed to auto-restart voice recognition:', err);
+          showToast('Voice input paused. Tap mic to resume.');
+          scheduleVoiceIdleTimeout();
+        }
+      }, VOICE_AUTO_RESTART_DELAY);
+      scheduleVoiceIdleTimeout();
+    }
+
+    function scheduleVoiceIdleTimeout() {
+      if (!voiceSessionActive) return;
+      if (voiceIdleTimer) {
+        clearTimeout(voiceIdleTimer);
+        voiceIdleTimer = null;
+      }
+
+      voiceIdleTimer = setTimeout(() => {
+        voiceIdleTimer = null;
+        autoSendVoiceMessage();
+      }, VOICE_IDLE_TIMEOUT);
+    }
+
+    function clearVoiceIdleTimer() {
+      if (voiceIdleTimer) {
+        clearTimeout(voiceIdleTimer);
+        voiceIdleTimer = null;
+      }
+    }
+
+    function autoSendVoiceMessage() {
+      if (!voiceSessionActive) return;
+      voiceSessionActive = false;
+      if (voiceRestartTimer) {
+        clearTimeout(voiceRestartTimer);
+        voiceRestartTimer = null;
+      }
+      clearVoiceIdleTimer();
+      hideInterimTranscript();
+      try {
+        recognition.stop();
+      } catch (err) {
+        console.warn('Failed to stop recognition during auto-send:', err);
+      }
+
+      const voiceBtn = document.getElementById('voice-btn');
+      if (voiceBtn) {
+        voiceBtn.classList.remove('recording');
+        voiceBtn.title = 'Voice input (Ctrl+\\)';
+      }
+
+      const finalText = promptInput.value.trim();
+      if (!finalText) return;
+
+      messageWasVoiceInput = true;
+      setTimeout(() => {
+        chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
+      }, 0);
+    }
+
+    // Toggle voice recording function (used by button and keyboard shortcut)
+    function toggleVoiceRecording() {
+      if (!voiceSupported) {
+        showToast('Voice input not supported in this browser');
+        return;
+      }
+
+      if (voiceSessionActive) {
+        voiceSessionActive = false;
+        if (voiceRestartTimer) {
+          clearTimeout(voiceRestartTimer);
+          voiceRestartTimer = null;
+        }
+        clearVoiceIdleTimer();
+        hideInterimTranscript();
+        try {
+          recognition.stop();
+        } catch (e) {
+          console.warn('Failed to stop recognition:', e);
+        }
+        return;
+      }
+
+      voiceSessionActive = true;
+      voiceBaseText = promptInput.value || '';
+      messageWasVoiceInput = false;
+      fullTranscript = '';
+      finalResults = [];
+      try {
+        recognition.start();
+      } catch (e) {
+        voiceSessionActive = false;
+        console.error('Failed to start recognition:', e);
+        showToast('Failed to start voice input. Please try again.');
+      }
+    }
+
+    // Voice button click handler
+    const voiceBtn = document.getElementById('voice-btn');
+    if (voiceBtn) {
+      if (!voiceSupported) {
+        voiceBtn.disabled = true;
+        voiceBtn.title = 'Voice not supported in this browser';
+        voiceBtn.style.opacity = '0.5';
+      } else {
+        voiceBtn.title = 'Voice input (Ctrl+\\)';
+        voiceBtn.addEventListener('click', toggleVoiceRecording);
+      }
+    }
+
+    // Image attachment state
+    let attachedImage = null;  // {file: File, dataUrl: string, base64: string}
+
+    // Image button click handler - trigger file input
+    const imageBtn = document.getElementById('image-btn');
+    const imageInput = document.getElementById('image-input');
+    if (imageBtn && imageInput) {
+      imageBtn.addEventListener('click', () => {
+        imageInput.click();
+      });
+
+      // File input change handler - store image
+      imageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate size (25MB limit)
+        if (file.size > 25 * 1024 * 1024) {
+          showToast('Image too large (max 25MB)');
+          imageInput.value = '';
+          return;
+        }
+
+        // Validate type
+        if (!file.type.startsWith('image/')) {
+          showToast('Please select an image file');
+          imageInput.value = '';
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          attachedImage = {
+            file: file,
+            dataUrl: reader.result,
+            base64: reader.result.split(',')[1]
+          };
+          // Visual indicator that image is attached
+          imageBtn.classList.add('has-attachment');
+          showToast('Image attached: ' + file.name);
+        };
+        reader.onerror = () => {
+          showToast('Failed to read image');
+          imageInput.value = '';
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Helper to clear attached image
+    function clearAttachedImage() {
+      attachedImage = null;
+      if (imageBtn) imageBtn.classList.remove('has-attachment');
+      if (imageInput) imageInput.value = '';
+    }
+
+    // Inbox button click handler - save text to Inbox.md (with optional image)
+    const inboxBtn = document.getElementById('inbox-btn');
+    if (inboxBtn) {
+      inboxBtn.addEventListener('click', async () => {
+        const text = promptInput.value.trim();
+        if (!text && !attachedImage) {
+          showToast('Nothing to save');
+          return;
+        }
+
+        inboxBtn.classList.add('saving');
+        inboxBtn.disabled = true;
+
+        try {
+          let res;
+          if (attachedImage) {
+            // Use FormData for multipart upload with image
+            const fd = new FormData();
+            fd.append('text', text);
+            fd.append('image', attachedImage.file);
+            res = await fetch('/save-to-inbox', { method: 'POST', body: fd });
+          } else {
+            // JSON request for text only
+            res = await fetch('/save-to-inbox', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text })
+            });
+          }
+
+          const data = await res.json();
+
+          if (data.success) {
+            showToast(data.has_image ? 'Saved to Inbox with image' : 'Saved to Inbox');
+            promptInput.value = '';
+            promptInput.style.height = 'auto';
+            clearAttachedImage();
+          } else {
+            showToast(data.error || 'Failed to save');
+          }
+        } catch (err) {
+          console.error('Inbox save error:', err);
+          showToast('Failed to save to Inbox');
+        } finally {
+          inboxBtn.classList.remove('saving');
+          inboxBtn.disabled = false;
+        }
+      });
+    }
+
+    // Text-to-speech function
+    function speakText(text) {
+      if (!speechSynthesis) {
+        console.warn('Speech synthesis not supported');
+        return;
+      }
+
+      // Cancel any ongoing speech
+      if (currentUtterance) {
+        speechSynthesis.cancel();
+      }
+
+      currentUtterance = new SpeechSynthesisUtterance(text);
+      if (selectedVoice) {
+        currentUtterance.voice = selectedVoice;
+      }
+      currentUtterance.rate = 1.0;
+      currentUtterance.pitch = 1.0;
+      currentUtterance.volume = 1.0;
+
+      currentUtterance.onend = () => {
+        currentUtterance = null;
+      };
+
+      currentUtterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+        currentUtterance = null;
+      };
+
+      speechSynthesis.speak(currentUtterance);
+    }
+
+    // Stop speech function
+    function stopSpeaking() {
+      if (speechSynthesis) {
+        speechSynthesis.cancel();
+        currentUtterance = null;
+      }
+    }
+
+    // ---------- Rendering ----------
+    function showChatListSkeleton() {
+      const chatList = document.getElementById('chatList');
+      chatList.innerHTML = '';
+      for (let i = 0; i < 5; i++) {
+        const li = document.createElement('li');
+        const skeleton = document.createElement('div');
+        skeleton.className = 'skeleton skeleton-chat-item';
+        li.appendChild(skeleton);
+        chatList.appendChild(li);
+      }
+    }
+
+    function showChatSkeleton() {
+      chatLog.innerHTML = '';
+      for (let i = 0; i < 3; i++) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `skeleton-message ${i % 2 === 0 ? 'assistant' : 'user'}`;
+        const bubble = document.createElement('div');
+        bubble.className = 'skeleton skeleton-bubble';
+        msgDiv.appendChild(bubble);
+        chatLog.appendChild(msgDiv);
+      }
+    }
+
+    function showEmptyChatList() {
+      const chatList = document.getElementById('chatList');
+      chatList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">💬</div>
+          <div class="empty-state-title">No chats yet</div>
+          <div class="empty-state-description">
+            Click "New Chat" to start your first conversation
+          </div>
+          <div class="empty-state-action">
+            <button class="btn btn-primary" onclick="document.getElementById('newChatBtn').click()">
+              Start a Chat
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function showEmptyChat() {
+      chatLog.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">✨</div>
+          <div class="empty-state-title">Ready to chat</div>
+          <div class="empty-state-description">
+            Type your message below to start the conversation
+          </div>
+        </div>
+      `;
+    }
+
+    function showEmptySearchResults(query) {
+      const searchResults = document.getElementById('searchResults');
+      searchResults.innerHTML = `
+        <div class="empty-state-small">
+          No chats found matching "${escapeHtml(query)}"
+        </div>
+      `;
+      searchResults.style.display = 'block';
+    }
+
+    function showEmptySourceList() {
+      const srcList = document.getElementById('srcList');
+      srcList.innerHTML = `
+        <div class="empty-state-small">
+          <div style="margin-bottom: 8px; opacity: 0.5;">📄</div>
+          No sources uploaded yet. Add text or PDF files above.
+        </div>
+      `;
+    }
+
+    function convertVaultPathsToObsidianLinks(element) {
+      // Find all text nodes and convert vault file paths to Obsidian URI links
+      // Pattern: vault:FILENAME.md or vault:PATH/FILENAME.md
+      const walker = document.createTreeWalker(
+        element,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+
+      const nodesToReplace = [];
+      let node;
+
+      while (node = walker.nextNode()) {
+        const text = node.textContent;
+        // Match vault:PATH.md pattern (case insensitive) - allow spaces in paths
+        if (/vault:[^\n]+\.md/i.test(text)) {
+          nodesToReplace.push(node);
+        }
+      }
+
+      nodesToReplace.forEach(node => {
+        const text = node.textContent;
+        const regex = /vault:([^\n]+\.md)/gi;
+        const parts = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+          // Add text before the match
+          if (match.index > lastIndex) {
+            parts.push(document.createTextNode(text.substring(lastIndex, match.index)));
+          }
+
+          // Create Obsidian link
+          const vaultPath = match[1];
+          const fileName = vaultPath.split('/').pop().replace('.md', '');
+          const obsidianUri = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent(vaultPath)}`;
+
+          const link = document.createElement('a');
+          link.href = obsidianUri;
+          link.textContent = `📄 ${fileName}`;
+          link.className = 'vault-file-link';
+          link.title = `Open ${vaultPath} in Obsidian`;
+          link.style.cssText = 'color: #a7c7ff; text-decoration: none; border-bottom: 1px dotted #a7c7ff; cursor: pointer; font-weight: 500;';
+
+          parts.push(link);
+          lastIndex = regex.lastIndex;
+        }
+
+        // Add remaining text
+        if (lastIndex < text.length) {
+          parts.push(document.createTextNode(text.substring(lastIndex)));
+        }
+
+        // Replace the text node with the new elements
+        const parent = node.parentNode;
+        parts.forEach(part => parent.insertBefore(part, node));
+        parent.removeChild(node);
+      });
+    }
+
+    /**
+     * Fetch vault structure and cache it for wikilink resolution
+     */
+    async function fetchVaultStructure() {
+      if (vaultStructureCache) {
+        return vaultStructureCache;
+      }
+
+      try {
+        const response = await fetch('/obsidian/structure');
+        const data = await response.json();
+
+        if (data.success) {
+          // Build a lookup map: note name -> file path
+          const noteMap = {};
+          const structure = data.structure;
+
+          // Process all folders and files
+          for (const [folderName, folderData] of Object.entries(structure.folders)) {
+            if (folderData.files) {
+              folderData.files.forEach(fileName => {
+                const noteName = fileName.replace('.md', '');
+                const fullPath = `${folderName}/${fileName}`;
+
+                // Store by note name (for [[note]] lookup)
+                if (!noteMap[noteName]) {
+                  noteMap[noteName] = [];
+                }
+                noteMap[noteName].push(fullPath);
+
+                // Also store by full path (for [[folder/note]] lookup)
+                const fullPathKey = `${folderName}/${noteName}`;
+                if (!noteMap[fullPathKey]) {
+                  noteMap[fullPathKey] = [];
+                }
+                noteMap[fullPathKey].push(fullPath);
+              });
+            }
+          }
+
+          vaultStructureCache = noteMap;
+          return noteMap;
+        } else {
+          console.error('Failed to fetch vault structure:', data.error);
+          return {};
+        }
+      } catch (error) {
+        console.error('Error fetching vault structure:', error);
+        return {};
+      }
+    }
+
+    /**
+     * Convert [[wikilink]] patterns to Obsidian URI links
+     * Detects both [[note]] and [[folder/note]] formats
+     * Note: This function is synchronous and uses cached vault structure
+     */
+    function convertWikilinksToObsidianLinks(element) {
+      // Use cached vault structure (should be pre-loaded)
+      const noteMap = vaultStructureCache || {};
+
+      if (!vaultStructureCache) {
+        return;
+      }
+
+      // Find all text nodes that might contain wikilinks
+      const walker = document.createTreeWalker(
+        element,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+
+      const nodesToReplace = [];
+      let node;
+
+      while (node = walker.nextNode()) {
+        const text = node.textContent;
+        // Match [[...]] pattern
+        if (/\[\[([^\]]+)\]\]/.test(text)) {
+          nodesToReplace.push(node);
+        }
+      }
+
+      nodesToReplace.forEach(node => {
+        const text = node.textContent;
+        const regex = /\[\[([^\]]+)\]\]/g;
+        const parts = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+          // Add text before the match
+          if (match.index > lastIndex) {
+            parts.push(document.createTextNode(text.substring(lastIndex, match.index)));
+          }
+
+          const noteName = match[1];
+          const cleanNoteName = noteName.trim();
+
+          // Check if note exists in vault
+          const matchingPaths = noteMap[cleanNoteName];
+
+          if (matchingPaths && matchingPaths.length > 0) {
+            // Note exists - create link
+            const filePath = matchingPaths[0]; // Use first match if multiple
+            const obsidianUri = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent(filePath)}`;
+
+            const link = document.createElement('a');
+            link.href = obsidianUri;
+            link.textContent = cleanNoteName;
+            link.className = 'wikilink wikilink-exists';
+            link.title = `Open ${filePath} in Obsidian`;
+
+            parts.push(link);
+          } else {
+            // Note doesn't exist - create placeholder
+            const span = document.createElement('span');
+            span.textContent = cleanNoteName;
+            span.className = 'wikilink wikilink-missing';
+            span.title = 'Note does not exist in vault';
+
+            parts.push(span);
+          }
+
+          lastIndex = regex.lastIndex;
+        }
+
+        // Add remaining text
+        if (lastIndex < text.length) {
+          parts.push(document.createTextNode(text.substring(lastIndex)));
+        }
+
+        // Replace the text node with the new elements
+        if (parts.length > 0) {
+          const parent = node.parentNode;
+          parts.forEach(part => parent.insertBefore(part, node));
+          parent.removeChild(node);
+        }
+      });
+    }
+
+    function formatTimestamp(date) {
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const isYesterday = date.toDateString() === yesterday.toDateString();
+
+      const timeStr = date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+
+      if (isToday) {
+        return timeStr;
+      } else if (isYesterday) {
+        return `Yesterday ${timeStr}`;
+      } else {
+        return date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        }) + ' ' + timeStr;
+      }
+    }
+
+    function renderChat(chat) {
+      console.log('renderChat', chat && chat.id, chat && chat.messages && chat.messages.length);
+      chatLog.innerHTML = '';
+      if (!chat || !chat.messages || chat.messages.length === 0) {
+        showEmptyChat();
+        return;
+      }
+      // show chat-level model badge
+      const badge = document.getElementById('chatModelBadge');
+      badge.textContent = chat.model ? `model: ${chat.model}` : '';
+      for (let i = 0; i < chat.messages.length; i++) {
+        const m = chat.messages[i];
+        const row = document.createElement('div');
+        row.className = `message ${m.role}`;
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        try {
+          // Pre-process vault links for assistant messages to fix parentheses
+          const content = m.role === 'assistant' ? fixVaultLinksForMarkdown(m.content || "") : (m.content || "");
+          const parsed = marked.parse(content);
+          bubble.innerHTML = DOMPurify.sanitize(parsed);
+          // Convert vault file paths to Obsidian URI links
+          if (m.role === 'assistant') {
+            convertVaultPathsToObsidianLinks(bubble);
+            // Also convert [[wikilink]] patterns to Obsidian links
+            convertWikilinksToObsidianLinks(bubble);
+          }
+        } catch (err) {
+          console.error('Error parsing message markdown:', err, m);
+          // Fallback to raw text
+          bubble.textContent = m.content || '';
+        }
+        // If message has a model (assistant messages), add a small pill
+        if (m.role === 'assistant' && m.model) {
+          const pill = document.createElement('span');
+          pill.className = 'msg-model-pill';
+          pill.textContent = m.model;
+          bubble.appendChild(pill);
+        }
+
+        // Add timestamp
+        const timestamp = document.createElement('div');
+        timestamp.className = 'message-timestamp';
+        // m.ts is Unix timestamp in seconds, need to convert to milliseconds
+        const dateMs = (m.ts || m.timestamp || m.created_at) ? (m.ts || m.timestamp || m.created_at) * 1000 : Date.now();
+        const date = new Date(dateMs);
+        timestamp.textContent = formatTimestamp(date);
+
+        // append bubble to row first so parentNode is available to action buttons
+        row.appendChild(bubble);
+        row.appendChild(timestamp);
+
+        // For assistant messages, add copy/download actions. Pass the raw markdown content so
+        // the copy button copies markdown (not the sanitized HTML).
+        if (m.role === 'assistant') {
+          addAssistantActions(bubble, m.content || "");
+        }
+        chatLog.appendChild(row);
+
+        // Load and render citations from sessionStorage if available
+        if (m.role === 'assistant') {
+          const savedCitations = loadCitationsFromSession(chat.id, i);
+          if (savedCitations && savedCitations.length > 0) {
+            const citationsHtml = renderCitations(savedCitations);
+            row.insertAdjacentHTML('beforeend', citationsHtml);
+          }
+        }
+      }
+
+      // Attach citation toggles after all messages are rendered
+      attachCitationToggles(chatLog);
+
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function addAssistantActions(bubbleElem, rawText) {
+      console.log('addAssistantActions (len):', (rawText || '').length);
+      const bar = document.createElement("div");
+      bar.className = "assistant-actions";
+
+      // Copy markdown button
+      const btnCopy = document.createElement("button");
+      btnCopy.type = "button";
+      btnCopy.textContent = "Copy MD";
+      btnCopy.addEventListener("click", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        try {
+          const payload = (rawText || '').trim();
+          const ok = await copyToClipboard(payload);
+          const original = btnCopy.textContent;
+          btnCopy.textContent = ok ? "Copied \u2713" : "Copy failed";
+          btnCopy.disabled = true;
+          setTimeout(() => { btnCopy.textContent = original; btnCopy.disabled = false; }, 1200);
+        } catch (e) {
+          console.error('Copy MD failed', e);
+        }
+      });
+
+
+        // Copy rendered button (copies the visible text inside the bubble)
+        const btnCopyRendered = document.createElement("button");
+        btnCopyRendered.type = "button";
+        btnCopyRendered.textContent = "Copy rendered";
+        btnCopyRendered.addEventListener("click", async (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          // Clone the bubble and remove UI elements so we only copy the message content
+          try {
+            const tmp = bubbleElem.cloneNode(true);
+            tmp.querySelectorAll('.assistant-actions, .msg-model-pill').forEach(n => n.remove());
+            const rendered = (tmp.innerText || tmp.textContent || rawText || '').trim();
+            const ok2 = await copyToClipboard(rendered);
+            const original2 = btnCopyRendered.textContent;
+            btnCopyRendered.textContent = ok2 ? "Copied \u2713" : "Copy failed";
+            btnCopyRendered.disabled = true;
+            setTimeout(() => { btnCopyRendered.textContent = original2; btnCopyRendered.disabled = false; }, 1200);
+          } catch (e) {
+            console.error('Copy rendered failed', e);
+          }
+        });
+
+        // Speaker button for text-to-speech
+        const btnSpeak = document.createElement("button");
+        btnSpeak.type = "button";
+        btnSpeak.className = "speak-btn";
+        btnSpeak.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
+        btnSpeak.title = "Read aloud";
+
+        let isSpeaking = false;
+        btnSpeak.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+
+          if (isSpeaking) {
+            stopSpeaking();
+            btnSpeak.classList.remove('speaking');
+            btnSpeak.title = "Read aloud";
+            isSpeaking = false;
+          } else {
+            // Get clean text from bubble (remove UI elements)
+            const tmp = bubbleElem.cloneNode(true);
+            tmp.querySelectorAll('.assistant-actions, .msg-model-pill').forEach(n => n.remove());
+            const textToSpeak = (tmp.innerText || tmp.textContent || rawText || '').trim();
+
+            if (textToSpeak) {
+              btnSpeak.classList.add('speaking');
+              btnSpeak.title = "Stop speaking";
+              isSpeaking = true;
+              speakText(textToSpeak);
+
+              // Reset button state when speech ends
+              const checkSpeechEnd = setInterval(() => {
+                if (!speechSynthesis.speaking) {
+                  btnSpeak.classList.remove('speaking');
+                  btnSpeak.title = "Read aloud";
+                  isSpeaking = false;
+                  clearInterval(checkSpeechEnd);
+                }
+              }, 100);
+            }
+          }
+        });
+
+        // Save to Vault button
+        const btnSaveToVault = document.createElement("button");
+        btnSaveToVault.type = "button";
+        btnSaveToVault.textContent = "📝 Save to Vault";
+        btnSaveToVault.title = "Save this response to your Obsidian vault";
+        btnSaveToVault.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          
+          // Open modal with content
+          const defaultFilename = `AI Response ${new Date().toISOString().split('T')[0]}`;
+          openSaveToVaultModal(rawText, defaultFilename, btnSaveToVault);
+        });
+
+        bar.append(btnCopy, btnCopyRendered, btnSpeak, btnSaveToVault);
+
+      // Append the action bar inside the bubble so it appears within the rounded area
+      bar.setAttribute('aria-hidden', 'false');
+      bubbleElem.appendChild(bar);
+    }
+
+    async function copyToClipboard(text) {
+      // Prefer modern clipboard API when available
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+        throw new Error("Navigator clipboard unavailable or insecure context");
+      } catch (e) {
+        // Fallback: hidden <textarea> + execCommand
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          // Avoid scrolling to bottom
+          ta.style.position = "fixed";
+          ta.style.top = "-9999px";
+          ta.style.left = "-9999px";
+          ta.setAttribute("readonly", "");
+          document.body.appendChild(ta);
+          ta.select();
+          ta.setSelectionRange(0, ta.value.length);
+          const ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+          return ok;
+        } catch (e2) {
+          console.error("Clipboard fallback failed:", e2);
+          return false;
+        }
+      }
+    }
+
+    function renderCitations(citations) {
+      /**
+       * Render RAG citations below assistant message.
+       * Returns HTML string for citations container.
+       */
+      if (!citations || citations.length === 0) return '';
+
+      const citationItems = citations.map((cit, idx) => {
+        const source = escapeHtml(cit.source || 'Unknown');
+        const score = (cit.score * 100).toFixed(1);
+        const snippet = escapeHtml(cit.snippet || '');
+        const obsidianLink = cit.obsidian_link || '#';
+        const chunkId = cit.chunk_id || '?';
+
+        return `
+          <li class="citation-item">
+            <div class="citation-source">
+              <a href="${obsidianLink}" class="citation-link" target="_blank" rel="noopener noreferrer">
+                ${source}
+              </a>
+              <span class="citation-score" title="Relevance score">${score}%</span>
+            </div>
+            ${snippet ? `<div class="citation-snippet">"${snippet}"</div>` : ''}
+            <div class="citation-meta">Chunk #${chunkId}</div>
+          </li>
+        `;
+      }).join('');
+
+      // Check user preference for collapsed state
+      const isCollapsed = localStorage.getItem('citations.collapsed') === 'true';
+      const collapsedClass = isCollapsed ? ' collapsed' : '';
+
+      return `
+        <div class="citations-container${collapsedClass}">
+          <div class="citations-header">
+            <span>📚 Sources (${citations.length})</span>
+            <button class="citations-toggle" type="button" aria-label="Toggle sources visibility">
+              ${isCollapsed ? '▶' : '▼'}
+            </button>
+          </div>
+          <ul class="citations-list">
+            ${citationItems}
+          </ul>
+        </div>
+      `;
+    }
+
+    function attachCitationToggles(container) {
+      /**
+       * Attach toggle event listeners to citation containers.
+       * Call this after inserting citations into the DOM.
+       */
+      container.querySelectorAll('.citations-toggle').forEach(btn => {
+        // Skip if already has listener
+        if (btn._hasToggleListener) return;
+        btn._hasToggleListener = true;
+
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const citContainer = btn.closest('.citations-container');
+          const isNowCollapsed = citContainer.classList.toggle('collapsed');
+
+          // Update button icon
+          btn.textContent = isNowCollapsed ? '▶' : '▼';
+
+          // Save preference
+          localStorage.setItem('citations.collapsed', isNowCollapsed.toString());
+        });
+      });
+    }
+
+    function saveCitationsToSession(chatId, messageIndex, citations) {
+      /**
+       * Save citations to sessionStorage for persistence across page refreshes.
+       * Key format: citations_<chatId>_<messageIndex>
+       * messageIndex is the position of the assistant message in the chat (0-based)
+       */
+      if (!chatId || messageIndex === undefined || !citations || citations.length === 0) return;
+      try {
+        const key = `citations_${chatId}_${messageIndex}`;
+        sessionStorage.setItem(key, JSON.stringify(citations));
+      } catch (e) {
+        console.error('Failed to save citations to sessionStorage:', e);
+      }
+    }
+
+    function loadCitationsFromSession(chatId, messageIndex) {
+      /**
+       * Load citations from sessionStorage.
+       * Returns citations array or null if not found.
+       */
+      if (!chatId || messageIndex === undefined) return null;
+      try {
+        const key = `citations_${chatId}_${messageIndex}`;
+        const data = sessionStorage.getItem(key);
+        return data ? JSON.parse(data) : null;
+      } catch (e) {
+        console.error('Failed to load citations from sessionStorage:', e);
+        return null;
+      }
+    }
+
+    function clearCitationsForChat(chatId) {
+      /**
+       * Clear all citations for a specific chat from sessionStorage.
+       * Useful when switching chats or deleting a chat.
+       */
+      if (!chatId) return;
+      try {
+        const prefix = `citations_${chatId}_`;
+        const keysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && key.startsWith(prefix)) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => sessionStorage.removeItem(key));
+      } catch (e) {
+        console.error('Failed to clear citations from sessionStorage:', e);
+      }
+    }
+
+    function enhanceCitations(container){
+      const re = /\[([^\]#]+)#(\d+)\]/g;
+      container.querySelectorAll('.bubble').forEach(bub => {
+        bub.innerHTML = bub.innerHTML.replace(re, (m, src, ord) => {
+          return `<a href="#" class="cite" data-src="${src}" data-ord="${ord}">[${src}#${ord}]</a>`;
+        });
+      });
+
+      const drawer = document.getElementById('citeDrawer');
+      const closeBtn = document.getElementById('citeDrawerClose');
+      const head = document.getElementById('citeDrawerHeader');
+      const body = document.getElementById('citeDrawerBody');
+      const link = document.getElementById('citeDrawerSourceLink');
+
+      function openDrawer(title, text, sourceUrl){
+        head.textContent = title;
+        body.textContent = text || "(no text)";
+        if (sourceUrl) { link.href = sourceUrl; link.style.display = 'inline'; } else { link.style.display = 'none'; }
+        drawer.style.display = 'block';
+      }
+      function closeDrawer(){ drawer.style.display = 'none'; }
+
+      closeBtn.onclick = closeDrawer;
+
+      container.querySelectorAll('a.cite').forEach(a => {
+        a.onclick = async (e) => {
+          e.preventDefault();
+          const src = a.dataset.src, ord = a.dataset.ord;
+          try{
+            const r = await fetch(`/chunk?source=${encodeURIComponent(src)}&ord=${encodeURIComponent(ord)}`);
+            const j = await r.json();
+            if (j.ok) openDrawer(`${j.source} #${j.ord}`, j.text, j.source_url || null);
+            else openDrawer(`${src} #${ord}`, "Chunk not found.", null);
+          }catch(err){
+            openDrawer(`${src} #${ord}`, "Error fetching chunk.", null);
+          }
+        };
+      });
+    }
+
+    // Toast helper
+    function showToast(text, timeout = 1200){
+      try{
+        const container = document.getElementById('toastContainer');
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.textContent = text;
+        container.appendChild(t);
+        // trigger show
+        setTimeout(() => t.classList.add('show'), 10);
+        setTimeout(() => { t.classList.remove('show'); setTimeout(()=> t.remove(), 200); }, timeout);
+      }catch(e){ console.error('Toast failed', e); }
+    }
+
+    // Attach copy buttons to code blocks inside a container element
+    function attachPreCopyButtons(container){
+      try{
+        container.querySelectorAll('pre').forEach(pre => {
+          if (pre._hasCopy) return; // idempotent
+          const btn = document.createElement('button');
+          btn.className = 'pre-copy-btn';
+          btn.type = 'button';
+          btn.textContent = 'Copy';
+          btn.onclick = async (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            const text = pre.innerText || pre.textContent || '';
+            const ok = await copyToClipboard(text);
+            showToast(ok ? 'Copied code ✓' : 'Copy failed');
+          };
+          pre.appendChild(btn);
+          pre._hasCopy = true;
+        });
+      }catch(e){ console.error('attachPreCopyButtons error', e); }
+    }
+
+    // ---------- API ----------
+    async function refreshSources(){
+      const res = await fetch('/sources');
+      const items = await res.json();
+      const ul = document.getElementById('srcList');
+      const showVault = document.getElementById('showVaultSources').checked;
+
+      ul.innerHTML = '';
+
+      // Filter items based on vault checkbox
+      // Assume vault sources have name that starts with "vault:" (from obsidian sync)
+      const filteredItems = items.filter(s => {
+        const isVaultSource = s.name.startsWith('vault:');
+        // If checkbox is checked, show all; if unchecked, hide vault sources
+        return showVault ? true : !isVaultSource;
+      });
+
+      if (!items || items.length === 0) {
+        showEmptySourceList();
+        return;
+      }
+
+      for (const s of filteredItems){
+        const li = document.createElement('li');
+        const isVault = s.name.startsWith('vault:');
+
+        // Create the source name element (on first line)
+        const strong = document.createElement('strong');
+
+        if (isVault) {
+          // Strip "vault:" prefix and create Obsidian link
+          const vaultPath = s.name.slice(6);
+          const obsidianUri = `obsidian://open?vault=${encodeURIComponent(OBSIDIAN_VAULT_NAME)}&file=${encodeURIComponent(vaultPath)}`;
+
+          const link = document.createElement('a');
+          link.href = obsidianUri;
+          link.textContent = vaultPath;
+          link.className = 'vault-source-link';
+          link.title = `Open ${vaultPath} in Obsidian`;
+          link.rel = 'noopener';
+
+          strong.appendChild(link);
+        } else {
+          // Non-vault source - just text
+          strong.textContent = s.name;
+        }
+
+        li.appendChild(strong);
+
+        // Add line break with minimal spacing
+        const br = document.createElement('div');
+        br.style.height = '1px';
+        li.appendChild(br);
+
+        // Second line: chunk count, badge, and delete button
+        const metaLine = document.createElement('span');
+        metaLine.style.display = 'flex';
+        metaLine.style.alignItems = 'center';
+        metaLine.style.gap = '8px';
+
+        // Add chunk count
+        const small = document.createElement('small');
+        small.textContent = `(${s.chunks} chunks)`;
+        metaLine.appendChild(small);
+
+        // Add [VAULT] badge for vault sources
+        if (isVault) {
+          const badge = document.createElement('span');
+          badge.style.color = 'var(--pastel-green)';
+          badge.style.fontSize = '10px';
+          badge.textContent = '[VAULT]';
+          metaLine.appendChild(badge);
+        }
+
+        // Add delete button
+        const del = document.createElement('button');
+        del.textContent = 'Delete';
+        del.onclick = async () => {
+          await fetch('/sources/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: s.id})});
+          refreshSources();
+        };
+        metaLine.appendChild(del);
+
+        li.appendChild(metaLine);
+        ul.appendChild(li);
+      }
+      
+      // Show count of hidden vault sources
+      if (!showVault) {
+        const hiddenCount = items.length - filteredItems.length;
+        if (hiddenCount > 0) {
+          const info = document.createElement('li');
+          info.style.color = 'var(--muted)';
+          info.style.fontStyle = 'italic';
+          info.style.fontSize = '11px';
+          info.innerHTML = `(${hiddenCount} vault source${hiddenCount > 1 ? 's' : ''} hidden)`;
+          ul.appendChild(info);
+        }
+      }
+    }
+
+    function showUploadProgress(filename) {
+      const status = document.getElementById('uploadStatus');
+      status.innerHTML = `
+        <div style="margin: 8px 0;">
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 4px;">
+            Uploading ${escapeHtml(filename)}...
+          </div>
+          <div class="progress-bar">
+            <div class="progress-bar-fill" style="width: 100%;"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function escapeHtml(unsafe) {
+      if (!unsafe) return '';
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    document.getElementById('btnUploadSrc').onclick = async () => {
+      document.getElementById('uploadStatus').textContent = ''; // Clear status
+      const name = document.getElementById('srcName').value.trim();
+      const text = document.getElementById('srcText').value.trim();
+      if (!name || !text) {
+        document.getElementById('uploadStatus').textContent = "Provide both name and text";
+        return;
+      }
+      try{
+        showUploadProgress(name);
+        const r = await fetch('/upload', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ name, text })
+        });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "upload failed");
+        document.getElementById('srcName').value = "";
+        document.getElementById('srcText').value = "";
+        document.getElementById('uploadStatus').textContent = `Uploaded ${name} successfully.`;
+        refreshSources();
+      }catch(e){
+        document.getElementById('uploadStatus').textContent = "Upload error: " + e.message;
+      }
+    };
+
+    document.getElementById('btnSyncVault').onclick = async () => {
+      const syncBtn = document.getElementById('btnSyncVault');
+      const syncStatus = document.getElementById('syncStatus');
+      
+      // Disable button and show loading
+      syncBtn.disabled = true;
+      syncBtn.textContent = '⏳ Syncing...';
+      syncStatus.textContent = 'Scanning vault files...';
+      syncStatus.style.color = 'var(--accent)';
+      
+      try {
+        const res = await fetch('/obsidian/sync-to-rag', { method: 'POST' });
+        
+        // Check if response is JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await res.text();
+          throw new Error(`Server returned HTML instead of JSON. Status: ${res.status}`);
+        }
+        
+        const result = await res.json();
+        
+        if (result.success) {
+          syncStatus.style.color = 'var(--pastel-green)';
+          syncStatus.textContent = `✓ Synced ${result.synced} files (${result.skipped} skipped, ${result.errors} errors)`;
+          refreshSources();
+          showToast(`Vault synced: ${result.synced} files`);
+        } else {
+          syncStatus.style.color = 'var(--danger)';
+          syncStatus.textContent = `✗ Error: ${result.error || 'Unknown error'}`;
+          if (result.tried_paths) {
+            console.error('Vault not found. Tried:', result.tried_paths);
+          }
+        }
+      } catch (e) {
+        syncStatus.style.color = 'var(--danger)';
+        syncStatus.textContent = `✗ Sync failed: ${e.message}`;
+        console.error('Sync error:', e);
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.textContent = '🔄 Sync Obsidian Vault to RAG';
+        // Clear status after 5 seconds
+        setTimeout(() => { syncStatus.textContent = ''; }, 5000);
+      }
+    };
+
+    document.getElementById('btnUploadPdf').onclick = async () => {
+      document.getElementById('uploadStatus').textContent = ''; // Clear status
+      const f = document.getElementById('pdfFile').files[0];
+      if (!f) {
+        document.getElementById('uploadStatus').textContent = "Please select a PDF file.";
+        return;
+      }
+      const name = document.getElementById('pdfName').value.trim() || f.name.replace(/\.pdf$/i,"");
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('name', name);
+      try{
+        showUploadProgress(name);
+        const r = await fetch('/upload-pdf', { method:'POST', body: fd });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "upload failed");
+        document.getElementById('pdfFile').value = "";
+        document.getElementById('pdfName').value = "";
+        document.getElementById('uploadStatus').textContent = `Uploaded ${name} successfully.`;
+        refreshSources();
+      }catch(e){
+        document.getElementById('uploadStatus').textContent = "PDF Upload error: " + e.message;
+      }
+    };
+    
+    async function refreshChatList() {
+      try {
+        const resp = await fetch('/chats');
+        const chats = await resp.json();
+        window.allChats = chats;
+        console.log('[ChatList] Loaded ' + chats.length + ' chats');
+        
+        // Fetch all tags
+        const tagsResp = await fetch('/tags');
+        const tagsData = await tagsResp.json();
+        console.log('[ChatList] Loaded ' + tagsData.tags.length + ' unique tags');
+        
+        const tagFilterDiv = document.querySelector('.tag-filters');
+        tagFilterDiv.innerHTML = ''; // Clear existing filters
+        
+        // Add "All" button
+        const allBtn = document.createElement('button');
+        allBtn.className = 'tag-filter active';
+        allBtn.dataset.tag = '';
+        allBtn.textContent = 'All';
+        allBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          console.log('[ChatList] Filter: All');
+          document.querySelectorAll('.tag-filter').forEach(b => b.classList.remove('active'));
+          allBtn.classList.add('active');
+          filterChatsByTag('');
+        });
+        tagFilterDiv.appendChild(allBtn);
+        
+        // Add tag filter buttons
+        if (tagsData.tags && tagsData.tags.length > 0) {
+          tagsData.tags.forEach(tagObj => {
+            const button = document.createElement('button');
+            button.className = 'tag-filter';
+            button.dataset.tag = tagObj.name;
+            button.textContent = `${tagObj.name} (${tagObj.count})`;
+            button.addEventListener('click', (e) => {
+              e.preventDefault();
+              console.log('[ChatList] Filter:', tagObj.name);
+              document.querySelectorAll('.tag-filter').forEach(b => b.classList.remove('active'));
+              button.classList.add('active');
+              filterChatsByTag(tagObj.name);
+            });
+            tagFilterDiv.appendChild(button);
+          });
+        }
+        
+        renderChatList(chats);
+      } catch (err) {
+        console.error('[ChatList] Error refreshing:', err);
+      }
+    }
+
+    function renderChatList(chats) {
+      console.log('[renderChatList] Called with', chats ? chats.length : 'null', 'chats');
+      console.log('[renderChatList] chatList element:', chatList);
+      console.log('[renderChatList] chatList exists in DOM:', document.getElementById('chatList'));
+
+      chatList.innerHTML = '';
+      console.log('[ChatList] Rendering ' + chats.length + ' chats, bulkSelectMode:', bulkSelectMode, 'showingArchived:', showingArchived);
+
+      if (!chats || chats.length === 0) {
+        console.log('[ChatList] No chats to display - showing empty state');
+        showEmptyChatList();
+        console.log('[ChatList] Empty state shown, chatList.children.length:', chatList.children.length);
+        return;
+      }
+
+      for (const c of chats) {
+        const li = document.createElement('li');
+        li.dataset.chatId = c.id;
+        li.className = 'chat-item';
+        li.dataset.color = parseInt(c.id) % 5; // Assign color based on chat ID (0-4)
+
+        // Mark as active if this is the current chat
+        if (c.id == currentChatId) {
+          li.classList.add('active');
+        }
+
+        // Mark as selected in bulk mode
+        if (bulkSelectMode && selectedChatIds.has(c.id)) {
+          li.classList.add('selected');
+        }
+
+        const tags = c.tags || [];
+        const tagBadges = tags.map(tag =>
+          `<span class="tag-badge" title="Tag: ${escapeHtml(tag)}">${escapeHtml(tag)}</span>`
+        ).join('');
+
+        // Build checkbox HTML for bulk mode
+        const checkboxHtml = bulkSelectMode
+          ? `<input type="checkbox" class="chat-checkbox" ${selectedChatIds.has(c.id) ? 'checked' : ''}>`
+          : '';
+
+        // Build action button based on mode
+        let actionBtn;
+        if (showingArchived) {
+          actionBtn = `<button class="unarchive-btn" type="button" title="Restore" style="background: none; border: none; color: var(--success); cursor: pointer; padding: 4px; font-size: 12px;">↩</button>`;
+        } else {
+          actionBtn = `<button class="archive-btn" type="button" title="Archive" style="background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; font-size: 14px;">📦</button>`;
+        }
+
+        li.innerHTML = `
+          ${checkboxHtml}
+          <div class="chat-item-title" style="flex: 1; cursor: pointer; word-break: break-word;">${escapeHtml(c.title)} ${tagBadges}</div>
+          <div class="chat-item-actions" style="display: flex; gap: 4px; flex-shrink: 0;">
+            <button class="tag-btn" type="button" title="Manage tags" style="background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; font-size: 14px;">🏷️</button>
+            <button class="rename-btn" type="button" title="Rename" style="background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; font-size: 12px;">✎</button>
+            ${actionBtn}
+          </div>
+        `;
+
+        // Checkbox handler for bulk mode
+        const checkbox = li.querySelector('.chat-checkbox');
+        if (checkbox) {
+          checkbox.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleChatSelection(c.id);
+          });
+        }
+
+        // Chat title click - open chat (or toggle selection in bulk mode)
+        li.querySelector('.chat-item-title').addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (bulkSelectMode) {
+            toggleChatSelection(c.id);
+            return;
+          }
+          console.log('[ChatList] Opening chat:', c.id);
+          // Remove active class from all chat items
+          document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+          // Add active class to this chat item (li IS the chat-item)
+          li.classList.add('active');
+          openChat(c.id);
+        });
+
+        // Tag button
+        li.querySelector('.tag-btn').addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('[ChatList] Opening tag modal for:', c.id);
+          showTagModal(c.id);
+        });
+
+        // Rename button
+        li.querySelector('.rename-btn').addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const newTitle = prompt('New title:', c.title);
+          if (newTitle && newTitle.trim()) {
+            console.log('[ChatList] Renaming chat:', c.id, 'to:', newTitle);
+            renameChat(c.id, newTitle);
+          }
+        });
+
+        // Archive button (replaces delete)
+        const archiveBtn = li.querySelector('.archive-btn');
+        if (archiveBtn) {
+          archiveBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (confirm(`Archive "${c.title}"?`)) {
+              console.log('[ChatList] Archiving chat:', c.id);
+              archiveChat(c.id);
+            }
+          });
+        }
+
+        // Unarchive button (for archived view)
+        const unarchiveBtn = li.querySelector('.unarchive-btn');
+        if (unarchiveBtn) {
+          unarchiveBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[ChatList] Unarchiving chat:', c.id);
+            unarchiveChat(c.id);
+          });
+        }
+        
+        chatList.appendChild(li);
+      }
+      console.log('[ChatList] Finished rendering, list has ' + chatList.children.length + ' items');
+    }
+
+    async function filterChatsByTag(tag) {
+      if (!tag) {
+        renderChatList(window.allChats);
+        return;
+      }
+      
+      const matchingChats = window.allChats.filter(chat => chat.tags && chat.tags.includes(tag));
+      renderChatList(matchingChats);
+    }
+
+    async function renameChat(chatId, newTitle) {
+      const r = await fetch(`/chat/${chatId}/rename`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({title: newTitle})
+      });
+      const data = await r.json();
+      if (data.ok) {
+        await refreshChatList();  // ← ADD await
+      }
+    }
+
+    async function deleteChat(chatId) {
+      try {
+        console.log('[ChatList] Deleting chat:', chatId);
+        const r = await fetch(`/chat/${chatId}/delete`, {method:'POST'});
+        const data = await r.json();
+        console.log('[ChatList] Delete response:', data);
+        if (data.ok){
+          console.log('[ChatList] Delete successful, updating view');
+          if (currentChatId === chatId) {
+            console.log('[ChatList] Deleted chat was active, clearing');
+            currentChatId = "";
+            localStorage.removeItem('chat.currentId');
+            chatLog.innerHTML = "";
+          }
+          console.log('[ChatList] Calling refreshChatList after delete');
+          await refreshChatList();  // ← ADD await
+          console.log('[ChatList] Chat list refreshed after delete');
+        } else {
+          console.error('[ChatList] Delete failed:', data);
+          alert('Error deleting chat: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('[ChatList] Error in deleteChat:', err);
+        alert('Error deleting chat');
+      }
+    }
+
+    // ========================================================================
+    // ARCHIVE FUNCTIONS
+    // ========================================================================
+
+    async function archiveChat(chatId) {
+      try {
+        console.log('[ChatList] Archiving chat:', chatId);
+        const r = await fetch(`/chat/${chatId}/archive`, {method:'POST'});
+        const data = await r.json();
+        console.log('[ChatList] Archive response:', data);
+        if (data.ok) {
+          console.log('[ChatList] Archive successful');
+          if (currentChatId === chatId) {
+            currentChatId = "";
+            localStorage.removeItem('chat.currentId');
+            chatLog.innerHTML = "";
+          }
+          await refreshChatList();
+          showToast('Chat archived');
+        } else {
+          console.error('[ChatList] Archive failed:', data);
+          alert('Error archiving chat: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('[ChatList] Error in archiveChat:', err);
+        alert('Error archiving chat');
+      }
+    }
+
+    async function unarchiveChat(chatId) {
+      try {
+        console.log('[ChatList] Unarchiving chat:', chatId);
+        const r = await fetch(`/chat/${chatId}/unarchive`, {method:'POST'});
+        const data = await r.json();
+        console.log('[ChatList] Unarchive response:', data);
+        if (data.ok) {
+          console.log('[ChatList] Unarchive successful');
+          await loadArchivedChats();
+          showToast('Chat restored');
+        } else {
+          console.error('[ChatList] Unarchive failed:', data);
+          alert('Error restoring chat: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('[ChatList] Error in unarchiveChat:', err);
+        alert('Error restoring chat');
+      }
+    }
+
+    async function loadArchivedChats() {
+      try {
+        const r = await fetch('/chats/archived');
+        const chats = await r.json();
+        console.log('[ChatList] Loaded archived chats:', chats.length);
+        renderChatList(chats);
+      } catch (err) {
+        console.error('[ChatList] Error loading archived chats:', err);
+      }
+    }
+
+    // ========================================================================
+    // BULK SELECT MODE FUNCTIONS
+    // ========================================================================
+
+    function enterBulkSelectMode() {
+      bulkSelectMode = true;
+      selectedChatIds.clear();
+      document.getElementById('bulkActionBar').style.display = 'flex';
+      document.getElementById('selectModeBtn').textContent = 'Cancel';
+      document.getElementById('selectModeBtn').classList.add('active');
+      updateSelectedCount();
+      refreshChatList();
+    }
+
+    function exitBulkSelectMode() {
+      bulkSelectMode = false;
+      selectedChatIds.clear();
+      document.getElementById('bulkActionBar').style.display = 'none';
+      document.getElementById('selectModeBtn').textContent = 'Select';
+      document.getElementById('selectModeBtn').classList.remove('active');
+      document.getElementById('selectAllChats').checked = false;
+      refreshChatList();
+    }
+
+    function toggleChatSelection(chatId) {
+      if (selectedChatIds.has(chatId)) {
+        selectedChatIds.delete(chatId);
+      } else {
+        selectedChatIds.add(chatId);
+      }
+      updateSelectedCount();
+      // Update the visual state of the chat item
+      const chatItem = document.querySelector(`[data-chat-id="${chatId}"]`);
+      if (chatItem) {
+        chatItem.classList.toggle('selected', selectedChatIds.has(chatId));
+        const checkbox = chatItem.querySelector('.chat-checkbox');
+        if (checkbox) checkbox.checked = selectedChatIds.has(chatId);
+      }
+    }
+
+    function selectAllChats() {
+      const chatItems = document.querySelectorAll('.chat-item');
+      chatItems.forEach(item => {
+        const chatId = item.dataset.chatId;
+        selectedChatIds.add(chatId);
+        item.classList.add('selected');
+        const checkbox = item.querySelector('.chat-checkbox');
+        if (checkbox) checkbox.checked = true;
+      });
+      updateSelectedCount();
+    }
+
+    function deselectAllChats() {
+      selectedChatIds.clear();
+      document.querySelectorAll('.chat-item').forEach(item => {
+        item.classList.remove('selected');
+        const checkbox = item.querySelector('.chat-checkbox');
+        if (checkbox) checkbox.checked = false;
+      });
+      updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+      const count = selectedChatIds.size;
+      document.getElementById('selectedCount').textContent = `${count} selected`;
+      document.getElementById('bulkArchiveBtn').disabled = count === 0;
+    }
+
+    async function bulkArchiveSelected() {
+      if (selectedChatIds.size === 0) return;
+
+      const count = selectedChatIds.size;
+      if (!confirm(`Archive ${count} chat${count > 1 ? 's' : ''}?`)) return;
+
+      try {
+        const r = await fetch('/chats/bulk-archive', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({chatIds: Array.from(selectedChatIds)})
+        });
+        const data = await r.json();
+        console.log('[ChatList] Bulk archive response:', data);
+
+        if (data.ok) {
+          // Clear current chat if it was archived
+          if (selectedChatIds.has(currentChatId)) {
+            currentChatId = "";
+            localStorage.removeItem('chat.currentId');
+            chatLog.innerHTML = "";
+          }
+          showToast(`Archived ${data.archived} chat${data.archived > 1 ? 's' : ''}`);
+          exitBulkSelectMode();
+        } else {
+          alert('Error archiving chats: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('[ChatList] Error in bulkArchiveSelected:', err);
+        alert('Error archiving chats');
+      }
+    }
+
+    function toggleArchivedView() {
+      showingArchived = !showingArchived;
+      const btn = document.getElementById('toggleArchivedBtn');
+      if (showingArchived) {
+        btn.classList.add('active');
+        btn.textContent = 'Active';
+        loadArchivedChats();
+      } else {
+        btn.classList.remove('active');
+        btn.textContent = 'Archived';
+        refreshChatList();
+      }
+      // Exit bulk mode when switching views
+      if (bulkSelectMode) {
+        exitBulkSelectMode();
+      }
+    }
+
+    async function openChat(chatId){
+      try {
+        console.log('[Chat] Opening chat:', chatId);
+        const res = await fetch(`/chat/${chatId}`);
+        const chat = await res.json();
+        if (!chat || chat.error) {
+          console.error('[Chat] Error loading chat:', chat);
+          return;
+        }
+        currentChatId = chatId;
+        localStorage.setItem(CHAT_KEY, chatId);
+        renderChat(chat);
+        console.log('[Chat] Chat rendered, messages:', chat.messages ? chat.messages.length : 0);
+        
+        // Sync model dropdown with pinned model if present
+        try{
+          const pinned = (chat.meta && chat.meta.pinned_model) ? chat.meta.pinned_model : null;
+          const badge = document.getElementById('chatModelBadge');
+          badge.textContent = chat.model ? `model: ${chat.model}` : '';
+          const pinBox = document.getElementById('pinModelCheckbox');
+          if (pinned) {
+            // If the pinned model exists in the select, set it, otherwise keep dropdown unchanged
+            if ([...modelSelect.options].some(o => o.value === pinned)) modelSelect.value = pinned;
+            pinBox.checked = true;
+          } else {
+            pinBox.checked = false;
+          }
+        }catch(e){console.error('[Chat] Error syncing model:', e)}
+        
+        console.log('[Chat] Refreshing chat list to highlight current');
+        await refreshChatList();  // ← ADD await
+        
+        console.log('[Chat] Refreshing budget');
+        await refreshBudget();
+
+        // Load chat mode
+        console.log('[Chat] Loading chat mode');
+        await loadChatMode(chatId);
+
+        // Auto-close sidebar on mobile after opening chat
+        if (window.innerWidth <= 768) {
+          const sidebar = document.querySelector('.sidebar');
+          const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+          if (sidebar && sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+            if (mobileMenuBtn) {
+              mobileMenuBtn.classList.remove('active');
+              mobileMenuBtn.setAttribute('aria-expanded', 'false');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[Chat] Error in openChat:', err);
+      }
+    }
+
+    async function createNewChat(){
+      console.log('[NewChat] Creating new chat...');
+      const res = await fetch('/new-chat', {method:'POST'});
+      const chat = await res.json();
+      console.log('[NewChat] Created chat:', chat.id);
+      await openChat(chat.id);
+      console.log('[NewChat] Finished opening chat');
+    }
+
+    async function loadModels(){
+      try {
+        console.log('[Models] Fetching from /models...');
+        // Add cache-busting parameter to bypass Cloudflare cache
+        const res = await fetch('/models?v=' + Date.now());
+        console.log('[Models] Response status:', res.status, res.statusText);
+        const data = await res.json();
+
+        // Handle new response structure: { models: [...], grouped: {...}, default: "model-id" }
+        const models = data.models || data;  // Backwards compatible
+        const grouped = data.grouped || null;  // Grouped by category
+        const defaultModel = data.default || null;
+        console.log('[Models] Received', models.length, 'models, default:', defaultModel);
+
+        modelSelect.innerHTML = '';
+        const saved = localStorage.getItem(MODEL_KEY);
+        console.log('[Models] Saved model in localStorage:', saved);
+
+        // Use grouped dropdown if available, otherwise flat list
+        if (grouped && Object.keys(grouped).length > 0) {
+          console.log('[Models] Using grouped dropdown, categories:', Object.keys(grouped));
+          for (const [catId, catData] of Object.entries(grouped)) {
+            console.log('[Models] Adding category:', catId, 'with', catData.models?.length, 'models');
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = catData.label || catId;
+            for (const m of catData.models) {
+              const opt = document.createElement('option');
+              opt.value = m.id;
+              opt.textContent = m.label || m.id;
+              optgroup.appendChild(opt);
+            }
+            modelSelect.appendChild(optgroup);
+          }
+        } else {
+          // Fallback to flat list
+          for (const m of models) {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.label || m.id;
+            modelSelect.appendChild(opt);
+          }
+        }
+
+        console.log('[Models] Total options in dropdown:', modelSelect.options.length);
+
+        // Priority: 1) saved in localStorage, 2) backend default, 3) first option
+        if (saved && [...modelSelect.options].some(o => o.value === saved)) {
+          modelSelect.value = saved;
+          console.log('[Models] Set dropdown to saved value:', saved);
+        } else if (defaultModel && [...modelSelect.options].some(o => o.value === defaultModel)) {
+          modelSelect.value = defaultModel;
+          localStorage.setItem(MODEL_KEY, defaultModel);
+          console.log('[Models] Set dropdown to backend default:', defaultModel);
+        } else {
+          console.log('[Models] Using first option as fallback');
+        }
+
+        // Update chat mode UI based on selected model
+        updateChatModeUI();
+      } catch (err) {
+        console.error('[Models] Error loading models:', err);
+        console.error('[Models] Error stack:', err.stack);
+      }
+    }
+
+    async function loadPresets(){
+      try{
+        const res = await fetch('/presets');
+        const items = await res.json();
+        presetSelect.innerHTML = '<option value="">(none)</option>';
+        for (const p of items){
+          const opt = document.createElement('option');
+          opt.value = p.id; opt.textContent = p.label;
+          presetSelect.appendChild(opt);
+        }
+      }catch(e){ console.error(e); }
+    }
+
+    async function updateUsage(){
+      try{
+        const res = await fetch('/total-usage');
+        const data = await res.json();
+        totalUsageDisplay.textContent = `Total Usage: $${(data.total_usd || 0).toFixed(4)}`;
+      }catch(e){}
+    }
+
+    async function loadChatMeta(chatId){
+      const r = await fetch(`/chat/${chatId}/meta`);
+      const j = await r.json();
+      return j.meta || {budget_usd:null, spent_usd:0};
+    }
+
+    function renderBudget(meta){
+      const fill = document.getElementById('budgetFill');
+      const text = document.getElementById('budgetText');
+      const input = document.getElementById('chatBudget');
+
+      input.value = meta.budget_usd ?? "";
+      const spent = Number(meta.spent_usd || 0);
+      const budget = Number(meta.budget_usd || 0);
+      let pct = 0;
+      if (budget > 0) pct = Math.min(100, Math.round((spent / budget) * 100));
+      fill.style.width = budget > 0 ? pct + "%" : "0%";
+      text.textContent = budget > 0
+        ? `Spent $${spent.toFixed(4)} / $${budget.toFixed(2)} (${pct}%)`
+        : `Spent $${spent.toFixed(4)} (no cap)`;
+
+      // Soft warning at 80%
+      if (budget > 0 && spent >= 0.8 * budget) {
+        text.style.color = "var(--danger)";
+      } else {
+        text.style.color = "var(--muted)";
+      }
+    }
+
+    document.getElementById('chatBudget').addEventListener('change', async (e)=>{
+      if (!currentChatId) return;
+      const budget = e.target.value ? Number(e.target.value) : null;
+      await fetch(`/chat/${currentChatId}/budget`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ budget })
+      });
+      const meta = await loadChatMeta(currentChatId);
+      renderBudget(meta);
+    });
+
+    // Call after opening/creating a chat and after each /ask:
+    async function refreshBudget(){
+      if (!currentChatId) return;
+      const meta = await loadChatMeta(currentChatId);
+      renderBudget(meta);
+    }
+
+    // ---------- Streaming Helpers ----------
+    function shouldUseStreaming(model) {
+      // In chat mode, allow streaming for all models (backend will verify support)
+      if (currentChatMode === 'chat') {
+        return true;
+      }
+      // In agentic mode, only whitelisted models use streaming
+      // NOTE: Native tool-calling models (qwen3, qwen2.5, llama3.2) are NOT here
+      // because streaming bypasses tool calling. They use /ask endpoint instead.
+      const streamingModels = [
+        'mistral:7b-instruct-q4_0',
+        'codestral:22b',
+        'phi3:mini',
+        'tinyllama:latest'
+      ];
+      return streamingModels.includes(model);
+    }
+
+    function handleStreamingResponse(body, bubble, chatId, prompt) {
+      return new Promise((resolve, reject) => {
+        // Create FormData for POST with streaming
+        const formData = new FormData();
+        formData.append('data', JSON.stringify(body));
+        
+        // Use fetch with ReadableStream for POST streaming
+        fetch('/ask-stream', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(body)
+        }).then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let fullText = '';
+          
+          // Remove loading animation
+          bubble.classList.remove('loading');
+          bubble.innerHTML = '<span class="streaming-cursor">|</span>';
+          
+          function readStream() {
+            reader.read().then(({ done, value }) => {
+              if (done) {
+                // Remove cursor and finalize
+                // Check if we have separate thinking and response sections
+                const thinkingSection = bubble.querySelector('.thinking-section');
+                const responseSection = bubble.querySelector('.response-section');
+                
+                if (responseSection) {
+                  // We have thinking + response structure - only update response section
+                  responseSection.innerHTML = responseSection.innerHTML.replace(/<span class="streaming-cursor">\|<\/span>/, '');
+                  try {
+                    const safeHtml = DOMPurify.sanitize(marked.parse(fixVaultLinksForMarkdown(fullText)));
+                    responseSection.innerHTML = safeHtml;
+                    // Convert vault paths and wikilinks to Obsidian URIs
+                    convertVaultPathsToObsidianLinks(responseSection);
+                    convertWikilinksToObsidianLinks(responseSection);
+                  } catch (err) {
+                    console.error('Error parsing streaming markdown:', err);
+                    responseSection.textContent = fullText;
+                  }
+                } else {
+                  // Standard response without thinking - replace entire bubble
+                  bubble.innerHTML = bubble.innerHTML.replace(/<span class="streaming-cursor">\|<\/span>/, '');
+                  try {
+                    const safeHtml = DOMPurify.sanitize(marked.parse(fixVaultLinksForMarkdown(fullText)));
+                    bubble.innerHTML = safeHtml;
+                    // Convert vault paths and wikilinks to Obsidian URIs
+                    convertVaultPathsToObsidianLinks(bubble);
+                    convertWikilinksToObsidianLinks(bubble);
+                  } catch (err) {
+                    console.error('Error parsing streaming markdown:', err);
+                    bubble.textContent = fullText;
+                  }
+                }
+
+                // Add model pill if model is specified in body
+                if (body && body.model) {
+                  const pill = document.createElement('span');
+                  pill.className = 'msg-model-pill';
+                  pill.textContent = body.model;
+                  bubble.appendChild(pill);
+                }
+
+                addAssistantActions(bubble, fullText);
+                enhanceCitations(document.getElementById('chat-log'));
+                attachPreCopyButtons(bubble);
+                showToast('Assistant replied');
+                resolve({ text: fullText, chatId: chatId });
+                return;
+              }
+              
+              // Process chunks
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop(); // Keep incomplete line in buffer
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6));
+                    
+                    if (data.type === 'thinking_start') {
+                      // Create thinking section if not exists
+                      if (!bubble.querySelector('.thinking-section')) {
+                        const thinkingDiv = document.createElement('div');
+                        thinkingDiv.className = 'thinking-section';
+                        thinkingDiv.innerHTML = '<h4>🤔 Thinking...</h4><div class="thinking-content"></div>';
+                        bubble.appendChild(thinkingDiv);
+                      }
+                    } else if (data.type === 'thinking_chunk' && data.content) {
+                      // Add to thinking content
+                      const thinkingContent = bubble.querySelector('.thinking-content');
+                      if (thinkingContent) {
+                        thinkingContent.textContent += data.content;
+                        // Auto-scroll
+                        const chatLog = document.getElementById('chat-log');
+                        chatLog.scrollTop = chatLog.scrollHeight;
+                      }
+                    } else if (data.type === 'thinking_complete') {
+                      // Thinking is done, collapse it and show response section
+                      const thinkingSection = bubble.querySelector('.thinking-section');
+                      if (thinkingSection) {
+                        thinkingSection.innerHTML = '<details><summary>🤔 Thinking (click to expand)</summary><pre class="thinking-content">' + 
+                          DOMPurify.sanitize(data.thinking) + '</pre></details>';
+                      }
+                      // Add response section
+                      const responseDiv = document.createElement('div');
+                      responseDiv.className = 'response-section';
+                      bubble.appendChild(responseDiv);
+                    } else if (data.type === 'chunk' && data.content) {
+                      // Add to response content
+                      const responseSection = bubble.querySelector('.response-section');
+                      if (responseSection) {
+                        fullText += data.content;
+                        try {
+                          const safeHtml = DOMPurify.sanitize(marked.parse(fixVaultLinksForMarkdown(data.full_text))) + '<span class="streaming-cursor">|</span>';
+                          responseSection.innerHTML = safeHtml;
+                          // Convert vault paths and wikilinks during streaming
+                          convertVaultPathsToObsidianLinks(responseSection);
+                          convertWikilinksToObsidianLinks(responseSection);
+                        } catch (err) {
+                          responseSection.innerHTML = DOMPurify.sanitize(data.full_text) + '<span class="streaming-cursor">|</span>';
+                        }
+                      } else {
+                        // Fallback for non-thinking models
+                        fullText += data.content;
+                        try {
+                          const safeHtml = DOMPurify.sanitize(marked.parse(fixVaultLinksForMarkdown(fullText))) + '<span class="streaming-cursor">|</span>';
+                          bubble.innerHTML = safeHtml;
+                          // Convert vault paths and wikilinks during streaming
+                          convertVaultPathsToObsidianLinks(bubble);
+                          convertWikilinksToObsidianLinks(bubble);
+                        } catch (err) {
+                          bubble.innerHTML = DOMPurify.sanitize(fullText) + '<span class="streaming-cursor">|</span>';
+                        }
+                      }
+                      // Auto-scroll
+                      const chatLog = document.getElementById('chat-log');
+                      chatLog.scrollTop = chatLog.scrollHeight;
+                    } else if (data.type === 'complete') {
+                      // Stream completed
+                      fullText = data.full_text || fullText;
+                    } else if (data.type === 'error') {
+                      console.error('Streaming error:', data.error);
+                      bubble.classList.remove('loading');
+                      bubble.textContent = `Error: ${data.error}`;
+                      reject(new Error(data.error));
+                      return;
+                    }
+                  } catch (err) {
+                    console.error('Error parsing SSE data:', err, line);
+                  }
+                }
+              }
+              
+              readStream(); // Continue reading
+            }).catch(reject);
+          }
+          
+          readStream(); // Start reading
+        }).catch(reject);
+      });
+    }
+
+    // ---------- Send ----------
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const prompt = promptInput.value.trim();
+      if (!prompt && !attachedImage) return;
+
+      // ensure there is a chat
+      let chatId = currentChatId;
+      if (!chatId) {
+        const chatTitle = prompt ? prompt.substring(0,50) : (attachedImage ? `Image: ${attachedImage.file.name}` : 'New Chat');
+        const res = await fetch('/new-chat', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title: chatTitle})});
+        const chat = await res.json();
+        chatId = chat.id;
+        await openChat(chatId);
+      }
+
+      // render user message optimistically (include image preview if attached)
+      const userRow = document.createElement('div');
+      userRow.className = 'message user';
+      let userBubbleContent = prompt ? DOMPurify.sanitize(marked.parse(prompt)) : '';
+      if (attachedImage) {
+        const imagePreview = `<div class="attached-image-preview"><img src="${attachedImage.dataUrl}" alt="${attachedImage.file.name}" /><span class="image-filename">${attachedImage.file.name}</span></div>`;
+        userBubbleContent = imagePreview + userBubbleContent;
+      }
+      userRow.innerHTML = `<div class="bubble">${userBubbleContent}</div>`;
+      chatLog.appendChild(userRow);
+      chatLog.scrollTop = chatLog.scrollHeight;
+      promptInput.value = '';
+
+      // placeholder for assistant
+      const asRow = document.createElement('div');
+      asRow.className = 'message assistant';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+  bubble.classList.add('loading');
+  bubble.innerHTML = '<span class="blinking-cursor"></span>';
+      asRow.appendChild(bubble);
+      chatLog.appendChild(asRow);
+      chatLog.scrollTop = chatLog.scrollHeight;
+
+      // build request
+      const body = {
+        prompt,
+        chatId,
+        model: modelSelect.value,
+        system: systemBox.value,
+        temperature: Number(tempSlider.value),
+        useRag: useRagBox.checked,
+        topK: Number(topKInput.value) || 5,
+        presetId: presetSelect.value || "",
+        chatMode: currentChatMode,
+        // Include image data if attached (for vision models)
+        image: attachedImage ? attachedImage.base64 : null,
+        imageType: attachedImage ? attachedImage.file.type : null,
+        imageName: attachedImage ? attachedImage.file.name : null
+      };
+
+      // Clear attached image after building request
+      if (attachedImage) {
+        clearAttachedImage();
+      }
+
+      try{
+        // Determine endpoint and method based on model
+        let useStreaming = shouldUseStreaming(body.model);
+        let endpoint = '/ask';
+
+        if (body.model.startsWith('claude-code-')) {
+          endpoint = '/ask-claude-code';
+          useStreaming = false; // Claude Code CLI doesn't stream
+        } else if (body.model.startsWith('codex-')) {
+          endpoint = '/ask-codex';
+          useStreaming = false; // Codex CLI doesn't stream
+          body.reasoning = reasoningSelect.value; // Add reasoning level for Codex
+        } else if (body.model.startsWith('gemini-cli-')) {
+          endpoint = '/ask-gemini-cli';
+          useStreaming = false; // Gemini CLI doesn't stream
+        } else if (body.model === 'gemini') {
+          endpoint = '/ask-gemini';
+          useStreaming = false; // Gemini API doesn't support streaming
+        } else if (useStreaming) {
+          endpoint = '/ask-stream';
+        }
+
+        // Store voice input state before it gets reset
+        const shouldAutoPlay = messageWasVoiceInput;
+
+        if (useStreaming) {
+          // Use streaming for supported models
+          const data = await handleStreamingResponse(body, bubble, chatId, prompt);
+
+          // Render citations if present in streaming response
+          if (data.citations && data.citations.length > 0) {
+            const citationsHtml = renderCitations(data.citations);
+            asRow.insertAdjacentHTML('beforeend', citationsHtml);
+            attachCitationToggles(chatLog);
+
+            // Save citations to sessionStorage for persistence
+            // Message index is total messages - 1 (0-based index of current assistant message)
+            const messageIndex = chatLog.querySelectorAll('.message').length - 1;
+            saveCitationsToSession(chatId, messageIndex, data.citations);
+          }
+
+          // Auto-play response if message was voice input
+          if (shouldAutoPlay && data.text) {
+            speakText(data.text);
+          }
+
+          updateUsage();
+          refreshBudget();
+          if (data.chatId) {
+            currentChatId = data.chatId;
+            localStorage.setItem('chat.currentId', data.chatId);
+            maybeAutoTitle(data.chatId, prompt);
+          }
+          refreshChatList();
+        } else {
+          // Use regular fetch for non-streaming models
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(body)
+          });
+          const data = await res.json();
+
+          // remove loading state
+          bubble.classList.remove('loading');
+          try {
+            const safeHtml = DOMPurify.sanitize(marked.parse(fixVaultLinksForMarkdown(data.text || '')));
+            bubble.innerHTML = safeHtml;
+            // Convert vault paths and wikilinks to Obsidian URIs
+            convertVaultPathsToObsidianLinks(bubble);
+            convertWikilinksToObsidianLinks(bubble);
+          } catch (err) {
+            console.error('Error parsing /ask response markdown:', err, data);
+            bubble.textContent = data.text || '';
+          }
+
+          // Add model pill if model is specified
+          if (body && body.model) {
+            const pill = document.createElement('span');
+            pill.className = 'msg-model-pill';
+            pill.textContent = body.model;
+            bubble.appendChild(pill);
+          }
+
+          addAssistantActions(bubble, data.text || '');
+
+          // Render citations if present
+          if (data.citations && data.citations.length > 0) {
+            const citationsHtml = renderCitations(data.citations);
+            asRow.insertAdjacentHTML('beforeend', citationsHtml);
+            attachCitationToggles(chatLog);
+
+            // Save citations to sessionStorage for persistence
+            // Message index is total messages - 1 (0-based index of current assistant message)
+            const messageIndex = chatLog.querySelectorAll('.message').length - 1;
+            saveCitationsToSession(chatId, messageIndex, data.citations);
+          }
+
+          enhanceCitations(chatLog);
+          attachPreCopyButtons(bubble);
+
+          // Auto-play response if message was voice input
+          if (shouldAutoPlay && data.text) {
+            speakText(data.text);
+          }
+
+          // show a tiny toast when assistant returns
+          showToast('Assistant replied');
+          updateUsage();
+          refreshBudget();
+          if (data.chatId) {
+            currentChatId = data.chatId;
+            localStorage.setItem('chat.currentId', data.chatId);
+            maybeAutoTitle(data.chatId, prompt);
+          }
+          refreshChatList();
+        }
+
+        // Reset voice input flag after handling response
+        messageWasVoiceInput = false;
+      }catch(err){
+        bubble.textContent = 'Error calling /ask. See console.';
+        console.error(err);
+      }
+    });
+
+    // Preset Management UI
+    const managePresetsBtn = document.getElementById('managePresetsBtn');
+    const presetsModal = document.getElementById('presetsModal');
+    const closePresetsModalBtn = document.getElementById('closePresetsModal');
+    const modalPresetsList = document.getElementById('modalPresetsList');
+    const presetForm = document.getElementById('presetForm');
+    const presetFormTitle = document.getElementById('presetFormTitle');
+    const presetIdField = document.getElementById('presetIdField');
+    const presetLabelField = document.getElementById('presetLabelField');
+    const presetSystemField = document.getElementById('presetSystemField');
+    const presetTempField = document.getElementById('presetTempField');
+    const cancelPresetEditBtn = document.getElementById('cancelPresetEdit');
+
+    async function populatePresetsModal() {
+      const res = await fetch('/presets');
+      const presets = await res.json();
+      modalPresetsList.innerHTML = '';
+      presets.forEach(p => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.style.marginBottom = '8px';
+        row.style.padding = '4px';
+        row.style.borderRadius = '4px';
+        row.style.border = '1px solid var(--border)';
+
+        const label = document.createElement('span');
+        label.textContent = p.label;
+
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.gap = '8px';
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.onclick = () => {
+          presetFormTitle.textContent = 'Edit Preset';
+          presetIdField.value = p.id;
+          presetLabelField.value = p.label;
+          presetSystemField.value = p.system;
+          presetTempField.value = p.temperature;
+        };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.onclick = async () => {
+          if (confirm(`Are you sure you want to delete preset "${p.label}"?`)) {
+            await fetch(`/presets/${p.id}`, { method: 'DELETE' });
+            populatePresetsModal();
+            loadPresets(); // Refresh main dropdown
+          }
+        };
+        actions.append(editBtn, deleteBtn);
+        row.append(label, actions);
+        modalPresetsList.appendChild(row);
+      });
+    }
+
+    function clearPresetForm() {
+        presetFormTitle.textContent = 'Add New Preset';
+        presetIdField.value = '';
+        presetForm.reset();
+    }
+
+    managePresetsBtn.onclick = () => {
+      presetsModal.style.display = 'block';
+      populatePresetsModal();
+      clearPresetForm();
+    };
+    closePresetsModalBtn.onclick = () => {
+      presetsModal.style.display = 'none';
+    };
+    cancelPresetEditBtn.onclick = clearPresetForm;
+
+    presetForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = presetIdField.value;
+      const body = {
+        label: presetLabelField.value,
+        system: presetSystemField.value,
+        temperature: Number(presetTempField.value)
+      };
+      if (!body.label) {
+        alert("Label is required.");
+        return;
+      }
+      const url = id ? `/presets/${id}` : '/presets';
+      const method = id ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (res.ok) {
+        populatePresetsModal();
+        loadPresets(); // Refresh main dropdown
+        clearPresetForm();
+      } else {
+        const err = await res.json();
+        alert("Error saving preset: " + (err.error || "Unknown error"));
+      }
+    });
+
+
+
+    // UI wiring
+    newChatBtn.onclick = createNewChat;
+    modelSelect.addEventListener('change', () => {
+      localStorage.setItem(MODEL_KEY, modelSelect.value);
+      updateChatModeUI(); // Update toggle state based on model
+    });
+
+    // Bulk select and archive button handlers
+    document.getElementById('selectModeBtn').onclick = () => {
+      if (bulkSelectMode) {
+        exitBulkSelectMode();
+      } else {
+        enterBulkSelectMode();
+      }
+    };
+    document.getElementById('toggleArchivedBtn').onclick = toggleArchivedView;
+    document.getElementById('selectAllChats').onchange = (e) => {
+      if (e.target.checked) {
+        selectAllChats();
+      } else {
+        deselectAllChats();
+      }
+    };
+    document.getElementById('bulkArchiveBtn').onclick = bulkArchiveSelected;
+    document.getElementById('cancelBulkBtn').onclick = exitBulkSelectMode;
+
+    // Pin model checkbox logic
+    const pinModelCheckbox = document.getElementById('pinModelCheckbox');
+    pinModelCheckbox.addEventListener('change', async (e) => {
+      if (!currentChatId) { e.target.checked = false; return; }
+      const model = e.target.checked ? modelSelect.value : null;
+      await fetch(`/chat/${currentChatId}/set-model`, {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ model })
+      });
+    });
+    tempSlider.addEventListener('input', () => { tempValue.textContent = tempSlider.value; });
+    presetSelect.addEventListener('change', async () => {
+      const id = presetSelect.value;
+      if (!id) return;
+      const res = await fetch('/presets/' + id);
+      if (!res.ok) return;
+      const p = await res.json();
+      if (p.system) systemBox.value = p.system;
+      if (typeof p.temperature === 'number') { tempSlider.value = p.temperature; tempValue.textContent = p.temperature; }
+    });
+
+    // Search functionality
+    const chatSearchInput = document.getElementById('chatSearch');
+    const searchResultsDiv = document.getElementById('searchResults');
+    let searchTimeout;
+
+    console.log('[Search] Setup - chatSearchInput:', chatSearchInput, 'searchResultsDiv:', searchResultsDiv);
+
+    if (chatSearchInput && searchResultsDiv) {
+      console.log('[Search] Adding event listeners');
+      chatSearchInput.addEventListener('input', () => {
+        console.log('[Search] Input event fired, value:', chatSearchInput.value);
+      const query = chatSearchInput.value.trim();
+      
+      clearTimeout(searchTimeout);
+      
+      if (query.length < 2) {
+        searchResultsDiv.style.display = 'none';
+        return;
+      }
+      
+      searchTimeout = setTimeout(async () => {
+        try {
+          const resp = await fetch(`/chats/search?q=${encodeURIComponent(query)}`);
+          const data = await resp.json();
+          
+          if (data.count === 0) {
+            showEmptySearchResults(query);
+            return;
+          }
+          
+          let html = '';
+          data.results.forEach(result => {
+            html += `
+              <div class="search-result-item" data-chat-id="${result.chat_id}">
+                <div class="search-result-title">${escapeHtml(result.title)}</div>
+                ${result.matches.map(m => `
+                  <div class="search-result-snippet">
+                    <span>${m.type === 'title' ? 'Title' : m.role}</span>: 
+                    <span>${highlightQuery(escapeHtml(m.snippet), query)}</span>
+                  </div>
+                `).join('')}
+              </div>
+            `;
+          });
+          
+          searchResultsDiv.innerHTML = html;
+          searchResultsDiv.style.display = 'block';
+          
+          document.querySelectorAll('.search-result-item').forEach(item => {
+            item.addEventListener('click', () => {
+              const cid = item.dataset.chatId;
+              openChat(cid);
+              chatSearchInput.value = '';
+              searchResultsDiv.style.display = 'none';
+            });
+          });
+          
+        } catch (err) {
+          console.error('Search error:', err);
+          searchResultsDiv.innerHTML = '<div class="search-result-item">Search failed</div>';
+          searchResultsDiv.style.display = 'block';
+        }
+      }, 300);
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-box')) {
+          searchResultsDiv.style.display = 'none';
+        }
+      });
+    }
+
+    function highlightQuery(text, query) {
+      const regex = new RegExp(`(${query})`, 'gi');
+      return text.replace(regex, '<mark>$1</mark>');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Tag Management - query elements when needed
+    let tagChatId = null;
+    let currentTags = [];
+
+    function showTagModal(chatId) {
+      console.log('[Tags] Opening tag modal for chat:', chatId);
+      const tagModal = document.getElementById('tagModal');
+      const tagInput = document.getElementById('tagInput');
+      const currentTagsDiv = document.getElementById('currentTags');
+      
+      if (!tagModal || !currentTagsDiv) {
+        console.error('[Tags] Tag modal elements not found');
+        alert('Tag modal not available');
+        return;
+      }
+      tagChatId = chatId;
+      fetch(`/chat/${chatId}`).then(r => r.json()).then(chat => {
+        console.log('[Tags] Loaded chat, meta:', chat.meta);
+        currentTags = (chat.meta && chat.meta.tags) ? [...chat.meta.tags] : [];
+        renderTagList(currentTags);
+        tagModal.style.display = 'flex';
+        if (tagInput) tagInput.focus();
+        console.log('[Tags] Modal displayed with tags:', currentTags);
+      }).catch(err => {
+        console.error('[Tags] Error loading chat:', err);
+        alert('Error loading chat for tagging');
+      });
+    }
+
+    function renderTagList(tags) {
+      const currentTagsDiv = document.getElementById('currentTags');
+      if (!currentTagsDiv) return;
+      
+      currentTagsDiv.innerHTML = tags.map(tag => `
+        <span class="tag-badge">
+          ${escapeHtml(tag)}
+          <button class="remove-tag-btn" type="button" data-tag="${escapeHtml(tag)}">&times;</button>
+        </span>
+      `).join('');
+      
+      currentTagsDiv.querySelectorAll('.remove-tag-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const tagToRemove = btn.dataset.tag;
+          console.log('[Tags] Removing tag:', tagToRemove);
+          currentTags = currentTags.filter(t => t !== tagToRemove);
+          renderTagList(currentTags);
+        });
+      });
+    }
+
+    // Setup tag modal event listeners - call this after DOM is loaded
+    function setupTagModalListeners() {
+      const tagInput = document.getElementById('tagInput');
+      const saveTagsBtn = document.getElementById('saveTagsBtn');
+      const tagModal = document.getElementById('tagModal');
+      const closeModalBtns = document.querySelectorAll('.modal-close');
+      
+      console.log('[Tags] Setting up modal listeners', {tagInput, saveTagsBtn, tagModal, closeModalBtns: closeModalBtns.length});
+      
+      if (tagInput) {
+        tagInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const newTag = tagInput.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+            console.log('[Tags] Adding tag:', newTag);
+            if (newTag && !currentTags.includes(newTag)) {
+              currentTags.push(newTag);
+              renderTagList(currentTags);
+              tagInput.value = '';
+              console.log('[Tags] Tag added, current tags:', currentTags);
+            } else if (currentTags.includes(newTag)) {
+              console.log('[Tags] Tag already exists:', newTag);
+            } else {
+              console.log('[Tags] Invalid tag:', newTag);
+            }
+          }
+        });
+      }
+
+      if (saveTagsBtn) {
+        saveTagsBtn.addEventListener('click', async () => {
+          const tagModal = document.getElementById('tagModal');
+          console.log('[Tags] Saving tags for chat', tagChatId, ':', currentTags);
+          try {
+            const res = await fetch(`/chat/${tagChatId}/tags`, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({tags: currentTags})
+            });
+            const data = await res.json();
+            console.log('[Tags] Save response:', data);
+            if (data.ok || data.tags) {
+              if (tagModal) tagModal.style.display = 'none';
+              await refreshChatList();
+              console.log('[Tags] Tags saved and chat list refreshed');
+            } else {
+              alert('Error saving tags: ' + (data.error || 'Unknown error'));
+            }
+          } catch (err) {
+            console.error('[Tags] Error saving tags:', err);
+            alert('Error saving tags');
+          }
+        });
+      }
+
+      if (closeModalBtns && closeModalBtns.length > 0) {
+        closeModalBtns.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[Tags] Closing modal');
+            if (tagModal) tagModal.style.display = 'none';
+          });
+        });
+      }
+
+      if (tagModal) {
+        tagModal.addEventListener('click', (e) => {
+          if (e.target === tagModal) {
+            console.log('[Tags] Closing modal via background click');
+            tagModal.style.display = 'none';
+          }
+        });
+      }
+    }
+
+
+    // Boot
+    (async function init(){
+      try {
+        console.log('[Init] Starting initialization...');
+        console.log('[Init] modelSelect element:', modelSelect);
+        console.log('[Init] chatList element:', chatList);
+        
+        console.log('[Init] Loading models...');
+        await loadModels();
+        console.log('[Init] Models loaded, dropdown has ' + modelSelect.options.length + ' options');
+        if (modelSelect.options.length === 0) {
+          console.error('[Init] WARNING: No models loaded!');
+        }
+        
+        console.log('[Init] Loading presets...');
+        await loadPresets();
+        
+        console.log('[Init] Updating usage...');
+        await updateUsage();
+        
+        console.log('[Init] Refreshing chat list...');
+        await refreshChatList();
+        console.log('[Init] Chat list refreshed, showing ' + chatList.children.length + ' chats');
+        console.log('[Init] Chat list HTML length:', chatList.innerHTML.length);
+        if (chatList.children.length === 0) {
+          console.error('[Init] WARNING: No chats in list after refresh!');
+        }
+        
+        console.log('[Init] Refreshing sources...');
+        await refreshSources();
+        console.log('[Init] Sources refreshed');
+
+        await fetchVaultStructure();
+
+        console.log('[Init] Setting up tag modal...');
+        setupTagModalListeners();
+        console.log('[Init] Tag modal setup complete');
+        
+        if (currentChatId) {
+          console.log('[Init] Opening current chat:', currentChatId);
+          await openChat(currentChatId);
+        }
+        
+        console.log('[Init] Initialization complete');
+        console.log('[Init] FINAL STATE - Models:', modelSelect.options.length, 'Chats:', chatList.children.length);
+      } catch (err) {
+        console.error('[Init] Fatal error during initialization:', err);
+        console.error('[Init] Error stack:', err.stack);
+      }
+    })();
+
+    // ========== Save to Vault Modal Functions ==========
+    let saveToVaultModalData = {
+      content: '',
+      defaultFilename: '',
+      buttonRef: null
+    };
+
+    async function loadVaultFolders() {
+      try {
+        const response = await fetch('/obsidian/structure');
+        const result = await response.json();
+        
+        if (result.success) {
+          const select = document.getElementById('saveFolderSelect');
+          select.innerHTML = '';
+          
+          // Add root option
+          const rootOption = document.createElement('option');
+          rootOption.value = '';
+          rootOption.textContent = '📁 Root';
+          select.appendChild(rootOption);
+          
+          // Add folder options
+          const folders = Object.keys(result.structure.folders).sort();
+          folders.forEach(folder => {
+            if (folder.startsWith('.')) return;
+            
+            const option = document.createElement('option');
+            option.value = folder;
+            option.textContent = `📁 ${folder}`;
+            select.appendChild(option);
+          });
+          
+          // Default to AI Responses if it exists
+          if (folders.includes('AI Responses')) {
+            select.value = 'AI Responses';
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load vault folders:', e);
+      }
+    }
+
+    function openSaveToVaultModal(content, defaultFilename, buttonRef = null) {
+      saveToVaultModalData = { content, defaultFilename, buttonRef };
+      
+      const modal = document.getElementById('saveToVaultModal');
+      const filenameInput = document.getElementById('saveFilename');
+      
+      filenameInput.value = defaultFilename;
+      loadVaultFolders();
+      
+      modal.classList.add('show');
+      modal.style.display = 'flex';
+      
+      setTimeout(() => filenameInput.select(), 100);
+    }
+
+    function closeSaveToVaultModal() {
+      const modal = document.getElementById('saveToVaultModal');
+      modal.classList.remove('show');
+      modal.style.display = 'none';
+      saveToVaultModalData = { content: '', defaultFilename: '', buttonRef: null };
+    }
+
+    async function executeSaveToVault() {
+      const filename = document.getElementById('saveFilename').value.trim();
+      const folder = document.getElementById('saveFolderSelect').value;
+      const confirmBtn = document.getElementById('confirmSaveBtn');
+      const originalBtnText = confirmBtn.innerHTML;
+      
+      if (!filename) {
+        showToast('Please enter a filename');
+        return;
+      }
+      
+      try {
+        confirmBtn.innerHTML = '⏳ Saving...';
+        confirmBtn.disabled = true;
+        
+        if (saveToVaultModalData.buttonRef) {
+          saveToVaultModalData.buttonRef.textContent = 'Saving...';
+          saveToVaultModalData.buttonRef.disabled = true;
+        }
+        
+        const response = await fetch('/obsidian/create-note', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            content: saveToVaultModalData.content,
+            destination: folder || 'AI Responses',
+            filename: filename.endsWith('.md') ? filename : `${filename}.md`,
+            mode: 'create'
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          showToast(`✅ Saved to ${result.path}`);
+          closeSaveToVaultModal();
+          
+          if (saveToVaultModalData.buttonRef) {
+            saveToVaultModalData.buttonRef.textContent = 'Saved ✓';
+            setTimeout(() => {
+              saveToVaultModalData.buttonRef.textContent = '📝 Save to Vault';
+              saveToVaultModalData.buttonRef.disabled = false;
+            }, 3000);
+          }
+        } else {
+          showToast(`❌ Error: ${result.error}`);
+          confirmBtn.innerHTML = originalBtnText;
+          confirmBtn.disabled = false;
+          
+          if (saveToVaultModalData.buttonRef) {
+            saveToVaultModalData.buttonRef.textContent = 'Failed ✗';
+            setTimeout(() => {
+              saveToVaultModalData.buttonRef.textContent = '📝 Save to Vault';
+              saveToVaultModalData.buttonRef.disabled = false;
+            }, 3000);
+          }
+        }
+      } catch (e) {
+        console.error('Save to vault failed:', e);
+        showToast('❌ Failed to save to vault');
+        confirmBtn.innerHTML = originalBtnText;
+        confirmBtn.disabled = false;
+        
+        if (saveToVaultModalData.buttonRef) {
+          saveToVaultModalData.buttonRef.textContent = 'Failed ✗';
+          setTimeout(() => {
+            saveToVaultModalData.buttonRef.textContent = '📝 Save to Vault';
+            saveToVaultModalData.buttonRef.disabled = false;
+          }, 3000);
+        }
+      }
+    }
+
+    // Initialize modal event listeners when DOM is ready
+    (function initSaveToVaultModal() {
+      // Wait for DOM to be fully loaded
+      const modal = document.getElementById('saveToVaultModal');
+      
+      if (!modal) {
+        // Modal not in DOM yet, retry after a short delay
+        setTimeout(initSaveToVaultModal, 100);
+        return;
+      }
+      
+      const closeBtn = document.getElementById('closeSaveModal');
+      const cancelBtn = document.getElementById('cancelSaveBtn');
+      const confirmBtn = document.getElementById('confirmSaveBtn');
+      const filenameInput = document.getElementById('saveFilename');
+      
+      if (!closeBtn || !cancelBtn || !confirmBtn || !filenameInput) {
+        console.error('Modal elements not found');
+        return;
+      }
+      
+      closeBtn.addEventListener('click', closeSaveToVaultModal);
+      cancelBtn.addEventListener('click', closeSaveToVaultModal);
+      
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          closeSaveToVaultModal();
+        }
+      });
+      
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) {
+          closeSaveToVaultModal();
+        }
+      });
+      
+      confirmBtn.addEventListener('click', executeSaveToVault);
+      
+      filenameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          executeSaveToVault();
+        }
+      });
+    })();
+
+  </script>
+
+  <!-- Tag Management Modal -->
+  <div id="tagModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Manage Tags</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="currentTags" class="tag-list"></div>
+        <input type="text" id="tagInput" placeholder="Add tag..." />
+        <small class="muted">Press Enter to add. Tags: lowercase, alphanumeric, hyphens only.</small>
+      </div>
+      <div class="modal-footer">
+        <button id="saveTagsBtn" class="btn btn-primary">Save</button>
+        <button class="modal-close btn btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save to Vault Modal -->
+  <div id="saveToVaultModal" class="modal" style="display: none;">
+    <div class="modal-content save-vault-modal">
+      <div class="modal-header">
+        <h2 id="saveModalTitle">📝 Save to Vault</h2>
+        <button class="modal-close" id="closeSaveModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="saveFilename">Filename</label><input type="text" id="saveFilename" placeholder="Enter filename (without .md)" />
+        </div>
+        <div class="form-group">
+          <label for="saveFolderSelect">Folder</label><select id="saveFolderSelect"><option value="">Loading folders...</option></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelSaveBtn">Cancel</button>
+        <button class="btn btn-primary" id="confirmSaveBtn">💾 Save</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

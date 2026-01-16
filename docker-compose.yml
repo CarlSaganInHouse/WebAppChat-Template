@@ -1,0 +1,88 @@
+
+services:
+  webchat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webchat-app
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - webchat-data:/app/data
+      - ./chats:/app/chats
+      - ${HOST_VAULT_PATH:-/root}:/app/vault
+      # Claude Code CLI credentials and config (needs write access for session data)
+      - /root/.claude:/root/.claude:rw
+      - /root/.claude.json:/root/.claude.json:rw
+      # Codex CLI credentials (for session tracking)
+      - /root/.codex:/root/.codex:rw
+      # Gemini CLI credentials (for session tracking)
+      - /root/.gemini:/root/.gemini:rw
+    env_file:
+      - .env
+    environment:
+      - FLASK_ENV=production
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OLLAMA_HOST=http://proxmox.internal:11434
+      - VAULT_PATH=${VAULT_PATH:-/app/vault}
+    extra_hosts:
+      # Use LXC container's eth0 IP to reach proxy services (Claude, Codex, Gemini)
+      - "host.docker.internal:${LXC_HOST_IP}"
+      # For Proxmox host services (if needed)
+      - "proxmox.internal:${PROXMOX_HOST_IP}"
+    restart: unless-stopped
+    networks:
+      - webchat-net
+
+  webdav:
+    build:
+      context: .
+      dockerfile: Dockerfile.webdav
+    container_name: webdav-server
+    ports:
+      - "8080:8080"
+    volumes:
+      - ${HOST_VAULT_PATH:-/root}:/app/vault:rw  # Read-write for Obsidian sync
+      - ${HOST_VAULT_PATH:-/root}/webdav-certs:/app/certs:ro  # SSL certificates
+      - ./webdav_users.json:/app/webdav_users.json:ro  # Credentials file (gitignored)
+    environment:
+      # Credentials loaded from webdav_users.json file (not env vars to avoid $ escaping issues)
+      # Generate with: python scripts/generate_webdav_credentials.py <device_name>
+      - WEBDAV_HOST=0.0.0.0
+      - WEBDAV_PORT=8080
+      - WEBDAV_VAULT_PATH=${WEBDAV_VAULT_PATH:-/app/vault}
+      - WEBDAV_USE_HTTPS=false
+      - WEBDAV_LOG_LEVEL=${WEBDAV_LOG_LEVEL:-INFO}
+      - WEBDAV_MAX_FILE_SIZE=${WEBDAV_MAX_FILE_SIZE:-104857600}
+      - WEBDAV_DENIED_PATHS=${WEBDAV_DENIED_PATHS:-^\.git/|^\.git$|~$|\.tmp$|\.swp$|\.DS_Store$}
+      - WEBDAV_DEBUG=${WEBDAV_DEBUG:-false}
+    restart: unless-stopped
+    networks:
+      - webchat-net
+
+  # ollama:
+  #   image: ollama/ollama:rocm
+  #   container_name: ollama-server
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   devices:
+  #     - /dev/dri:/dev/dri
+  #   environment:
+  #     - HSA_OVERRIDE_GFX_VERSION=9.0.0
+  #     - OLLAMA_DEBUG=1
+  #   restart: unless-stopped
+  #   networks:
+  #     - webchat-net
+
+volumes:
+  webchat-data:
+  ollama-data:
+
+networks:
+  webchat-net:
+    driver: bridge

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Keys - WebAppChat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: white;
+            border-bottom: 1px solid #ddd;
+            padding: 20px 0;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #ddd;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #ccc;
+        }
+
+        .btn-danger {
+            background: #fee;
+            color: #c33;
+        }
+
+        .btn-danger:hover {
+            background: #fdd;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 1px solid #fcc;
+            border-radius: 4px;
+            color: #c33;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .success-message {
+            background: #efe;
+            border: 1px solid #cfc;
+            border-radius: 4px;
+            color: #3c3;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .new-key-alert {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 4px;
+            color: #1565c0;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .new-key-alert h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .key-display {
+            background: white;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0;
+            padding: 10px;
+        }
+
+        .key-display::selection {
+            background: #667eea;
+            color: white;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            color: #856404;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .table th {
+            background: #f5f5f5;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        .table tr:hover {
+            background: #fafafa;
+        }
+
+        .table-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .revoked-badge {
+            background: #fee;
+            color: #c33;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .logout-link {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .logout-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .section {
+                padding: 15px;
+            }
+
+            .table {
+                font-size: 12px;
+            }
+
+            .table th,
+            .table td {
+                padding: 8px;
+            }
+
+            .btn {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-actions">
+                <div>
+                    <h1>🔑 API Keys</h1>
+                    <p>Manage API keys for voice commands and automation</p>
+                </div>
+                <form method="POST" action="{{ url_for('auth.logout') }}" style="display: inline;">
+                    <button type="submit" class="btn btn-secondary btn-small">Logout</button>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        {% if error %}
+        <div class="error-message">{{ error }}</div>
+        {% endif %}
+
+        {% if new_key %}
+        <div class="new-key-alert">
+            <h3>✅ API Key Created Successfully!</h3>
+            <p><strong>Label:</strong> {{ new_key.label }}</p>
+            <p><strong>Key ID:</strong> {{ new_key.id }}</p>
+            <p>Copy this key and store it securely:</p>
+            <div class="key-display">{{ new_key.key }}</div>
+            <div class="warning">
+                <strong>⚠️ Important:</strong> Save this key now. You won't be able to see it again.<br>
+                Use it in API requests with: <code>Authorization: Bearer {{ new_key.key }}</code>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Create New API Key Section -->
+        <div class="section">
+            <h2>Create New API Key</h2>
+            <form method="POST" action="{{ url_for('auth.manage_api_keys') }}">
+                <div class="form-group">
+                    <label for="label">Label (e.g., "Voice Assistant", "Mobile App")</label>
+                    <input
+                        type="text"
+                        id="label"
+                        name="label"
+                        placeholder="Describe what this key is for"
+                        required
+                    >
+                </div>
+                <button type="submit" class="btn btn-primary">Generate API Key</button>
+            </form>
+        </div>
+
+        <!-- API Keys List Section -->
+        <div class="section">
+            <h2>Your API Keys</h2>
+
+            {% if keys %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Label</th>
+                        <th>Created</th>
+                        <th>Last Used</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key in keys %}
+                    <tr>
+                        <td>#{{ key.id }}</td>
+                        <td>{{ key.label }}</td>
+                        <td>{{ key.created_at or 'Unknown' }}</td>
+                        <td>{{ key.last_used_at or 'Never' }}</td>
+                        <td>
+                            {% if key.revoked %}
+                            <span class="revoked-badge">REVOKED</span>
+                            {% else %}
+                            <span style="color: #3c3;">Active</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not key.revoked %}
+                            <form method="POST" action="{{ url_for('auth.revoke_api_key', key_id=key.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to revoke this key? This cannot be undone.');">
+                                <button type="submit" class="btn btn-danger btn-small">Revoke</button>
+                            </form>
+                            {% else %}
+                            <span style="color: #999;">Revoked</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No API keys yet. Create one above to get started!</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Usage Instructions -->
+        <div class="section" style="background: #f9f9f9;">
+            <h2>Usage Instructions</h2>
+            <p style="margin-bottom: 15px;">Use your API key to authenticate programmatic requests:</p>
+            <pre style="background: white; padding: 15px; border-radius: 4px; overflow-x: auto; border: 1px solid #ddd;"><code>curl -H "Authorization: Bearer YOUR_API_KEY" https://your-domain.com/api/messages</code></pre>
+            <p style="margin-top: 15px; color: #666; font-size: 13px;">Each key is independent. You can revoke any key without affecting others.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "web chat",
+      "intents": [
+        {
+          "name": "AskIntent",
+          "slots": [
+            {
+              "name": "Question",
+              "type": "AMAZON.SearchQuery",
+              "samples": []
+            }
+          ],
+          "samples": [
+            "{Question}",
+            "ask {Question}",
+            "tell me {Question}",
+            "what is {Question}",
+            "what's {Question}",
+            "search for {Question}",
+            "find {Question}",
+            "look up {Question}",
+            "explain {Question}",
+            "help me with {Question}",
+            "I need help with {Question}",
+            "can you {Question}",
+            "could you {Question}"
+          ]
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}
